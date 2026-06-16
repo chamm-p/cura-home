@@ -7,6 +7,7 @@ import { HousesDialog } from '../components/HousesDialog'
 import { ItemCard } from '../components/ItemCard'
 import { ItemDialog } from '../components/ItemDialog'
 import { SettingsDialog } from '../components/SettingsDialog'
+import { ThemeToggle } from '../components/ThemeToggle'
 import { Button } from '../components/ui/button'
 import { Select } from '../components/ui/select'
 import { Spinner } from '../components/ui/spinner'
@@ -143,6 +144,7 @@ export default function Inventory() {
                 <Settings className="h-4 w-4" />
               </Button>
             )}
+            <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={logout} title="Abmelden">
               <LogOut className="h-4 w-4" />
             </Button>

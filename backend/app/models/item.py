@@ -2,7 +2,7 @@
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
@@ -64,8 +64,13 @@ class Item(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    # onupdate als Python-Callable (nicht func.now()): so kennt SQLAlchemy den
+    # neuen Wert direkt nach dem UPDATE und expired ihn nicht — sonst triggert
+    # der Zugriff in _item_out ein Lazy-Reload (MissingGreenlet) im async-Kontext.
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     area: Mapped["Area | None"] = relationship(back_populates="items")  # noqa: F821
