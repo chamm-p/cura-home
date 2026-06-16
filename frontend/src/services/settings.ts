@@ -28,6 +28,19 @@ export const updateBackend = (id: string, body: Partial<LlmBackendPayload>) =>
   api.put<LlmBackend>(`/api/settings/llm-backends/${id}`, body).then((r) => r.data)
 export const deleteBackend = (id: string) =>
   api.delete(`/api/settings/llm-backends/${id}`)
+export const fetchModels = (
+  api_base_url: string,
+  api_key?: string | null,
+  backend_id?: string,
+) =>
+  api
+    .post<{ models: string[] }>('/api/settings/llm-backends/fetch-models', {
+      api_base_url,
+      api_key: api_key || null,
+      ...(backend_id ? { backend_id } : {}),
+    })
+    .then((r) => r.data.models)
+
 export const testBackend = (id: string) =>
   api
     .post<{ ok: boolean; sample?: string; error?: string }>(

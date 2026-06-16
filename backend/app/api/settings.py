@@ -7,11 +7,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_admin_user, get_current_user
-from app.core.security import encrypt_value
+from app.core.security import decrypt_value, encrypt_value
 from app.database import get_db
 from app.models.llm_backend import LlmBackend
 from app.models.user import User
 from app.schemas.settings import (
+    FetchModelsIn,
+    FetchModelsOut,
     LlmBackendIn,
     LlmBackendOut,
     LlmBackendUpdate,
@@ -20,7 +22,7 @@ from app.schemas.settings import (
     SettingValue,
 )
 from app.services import settings_store
-from app.services.llm import LlmError, chat_completion
+from app.services.llm import LlmError, chat_completion, list_models
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -44,6 +46,28 @@ async def list_backends(
 ):
     rows = await db.scalars(select(LlmBackend).order_by(LlmBackend.name))
     return [_backend_out(b) for b in rows]
+
+
+@router.post("/llm-backends/fetch-models", response_model=FetchModelsOut)
+async def fetch_models(
+    body: FetchModelsIn,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_admin_user),
+):
+    """Verfügbare Modelle vom Endpunkt laden (für die Backend-Konfiguration)."""
+    key = body.api_key
+    if not key and body.backend_id:
+        b = await db.get(LlmBackend, body.backend_id)
+        if b and b.api_key_encrypted:
+            try:
+                key = decrypt_value(b.api_key_encrypted)
+            except Exception:  # noqa: BLE001
+                key = None
+    try:
+        models = await list_models(body.api_base_url.strip(), key)
+    except LlmError as e:
+        raise HTTPException(502, str(e))
+    return FetchModelsOut(models=models)
 
 
 @router.post("/llm-backends", response_model=LlmBackendOut, status_code=201)

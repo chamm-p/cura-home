@@ -1,9 +1,10 @@
-import { CheckCircle2, Loader2, Plus, Trash2, XCircle } from 'lucide-react'
+import { CheckCircle2, Loader2, Plus, RefreshCw, Trash2, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   type LlmBackend,
   createBackend,
   deleteBackend,
+  fetchModels,
   getKv,
   getSearchConfig,
   listBackends,
@@ -44,6 +45,28 @@ export function SettingsDialog({
   const [form, setForm] = useState({ ...EMPTY })
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [models, setModels] = useState<string[]>([])
+  const [loadingModels, setLoadingModels] = useState(false)
+  const [modelsError, setModelsError] = useState<string | null>(null)
+
+  async function loadModels() {
+    if (!form.api_base_url.trim()) {
+      setModelsError('Bitte zuerst die API Base URL eintragen.')
+      return
+    }
+    setModelsError(null)
+    setLoadingModels(true)
+    try {
+      const ms = await fetchModels(form.api_base_url, form.api_key)
+      setModels(ms)
+      if (ms.length === 0) setModelsError('Keine Modelle gefunden.')
+      else if (!form.model_id) setForm((f) => ({ ...f, model_id: ms[0] }))
+    } catch (e: any) {
+      setModelsError(e?.response?.data?.detail || 'Modelle konnten nicht geladen werden.')
+    } finally {
+      setLoadingModels(false)
+    }
+  }
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; msg: string }>>({})
 
   async function reload() {
@@ -281,8 +304,38 @@ export function SettingsDialog({
           <div className="space-y-2 rounded-xl border border-dashed border-slate-300 p-3 dark:border-slate-600">
             <Input placeholder="Anzeigename (z.B. OpenAI GPT-4o)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <Input placeholder="API Base URL (…/v1)" value={form.api_base_url} onChange={(e) => setForm({ ...form, api_base_url: e.target.value })} />
-            <Input placeholder="Modell-ID (z.B. gpt-4o)" value={form.model_id} onChange={(e) => setForm({ ...form, model_id: e.target.value })} />
             <Input type="password" placeholder="API-Key" value={form.api_key} onChange={(e) => setForm({ ...form, api_key: e.target.value })} />
+            <div className="flex gap-2">
+              <Input
+                placeholder="Modell-ID (z.B. gpt-4o)"
+                list="model-options"
+                value={form.model_id}
+                onChange={(e) => setForm({ ...form, model_id: e.target.value })}
+              />
+              <datalist id="model-options">
+                {models.map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={loadModels}
+                disabled={loadingModels}
+                title="Modelle vom Endpunkt laden"
+              >
+                {loadingModels ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Modelle
+              </Button>
+            </div>
+            {modelsError && <p className="text-sm text-amber-600">{modelsError}</p>}
+            {models.length > 0 && !modelsError && (
+              <p className="text-xs text-slate-400">{models.length} Modelle geladen — Feld antippen für Vorschläge.</p>
+            )}
             <div className="flex flex-wrap gap-4 text-sm">
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={form.supports_vision} onChange={(e) => setForm({ ...form, supports_vision: e.target.checked })} />

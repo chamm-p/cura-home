@@ -39,6 +39,17 @@ class LlmBackendOut(BaseModel):
     has_api_key: bool = False
 
 
+class FetchModelsIn(BaseModel):
+    api_base_url: str = Field(min_length=1, max_length=500)
+    api_key: str | None = None
+    # Optional: bestehendes Backend → gespeicherten Key verwenden.
+    backend_id: uuid.UUID | None = None
+
+
+class FetchModelsOut(BaseModel):
+    models: list[str]
+
+
 class SettingValue(BaseModel):
     value: dict
 

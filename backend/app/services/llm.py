@@ -79,3 +79,34 @@ def first_message_content(data: dict[str, Any]) -> str:
         return data["choices"][0]["message"]["content"] or ""
     except (KeyError, IndexError, TypeError):
         return ""
+
+
+async def list_models(api_base_url: str, api_key: str | None) -> list[str]:
+    """Holt die verfügbaren Modell-IDs vom OpenAI-kompatiblen /models-Endpunkt."""
+    base = api_base_url.rstrip("/")
+    headers = {"Accept": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.get(f"{base}/models", headers=headers)
+    except httpx.HTTPError as e:
+        raise LlmError(f"Endpunkt nicht erreichbar: {e}") from e
+    if resp.status_code >= 400:
+        raise LlmError(f"/models-Abfrage fehlgeschlagen ({resp.status_code})")
+    try:
+        data = resp.json()
+    except ValueError as e:
+        raise LlmError("Ungültige Antwort vom /models-Endpunkt") from e
+
+    # OpenAI: {"data": [{"id": ...}]}; manche liefern {"models": [...]} oder Strings.
+    items = data.get("data") or data.get("models") or []
+    ids: list[str] = []
+    for m in items:
+        if isinstance(m, dict):
+            mid = m.get("id") or m.get("name") or m.get("model")
+            if mid:
+                ids.append(str(mid))
+        elif isinstance(m, str):
+            ids.append(m)
+    return sorted(set(ids))
