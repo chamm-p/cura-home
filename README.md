@@ -30,8 +30,8 @@ docker compose up -d --build
 ### Secrets erzeugen
 
 ```bash
-python3 -c "import secrets; print(secrets.token_hex(32))"                       # SECRET_KEY
-python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # ENCRYPTION_KEY
+python3 -c "import secrets; print(secrets.token_hex(32))"                            # SECRET_KEY
+python3 -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"  # ENCRYPTION_KEY
 ```
 
 ### Keycloak-Client

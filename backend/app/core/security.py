@@ -81,8 +81,8 @@ def validate_secrets() -> None:
     if not key or key in {"CHANGE_ME", "changeme"}:
         raise EncryptionKeyError(
             "ENCRYPTION_KEY fehlt. Erzeuge einen Fernet-Key mit:\n"
-            '  python3 -c "from cryptography.fernet import Fernet; '
-            'print(Fernet.generate_key().decode())"'
+            '  python3 -c "import os,base64; '
+            'print(base64.urlsafe_b64encode(os.urandom(32)).decode())"'
         )
     try:
         Fernet(key.encode() if isinstance(key, str) else key)
