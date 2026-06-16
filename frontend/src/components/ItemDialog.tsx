@@ -1,4 +1,4 @@
-import { Camera, Loader2, Trash2 } from 'lucide-react'
+import { Camera, Loader2, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import {
   type Area,
@@ -8,6 +8,7 @@ import {
   getItem,
   updateItem,
 } from '../services/inventory'
+import { type PriceEstimate, estimatePrice, pricingStatus } from '../services/pricing'
 import { Button } from './ui/button'
 import { Dialog } from './ui/dialog'
 import { Input } from './ui/input'
@@ -30,10 +31,16 @@ export function ItemDialog({
   const [price, setPrice] = useState('')
   const [areaId, setAreaId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [priceAvailable, setPriceAvailable] = useState(false)
+  const [estimating, setEstimating] = useState(false)
+  const [suggestion, setSuggestion] = useState<PriceEstimate | null>(null)
+  const [priceError, setPriceError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!itemId) return
+    setSuggestion(null)
+    setPriceError(null)
     getItem(itemId).then((it) => {
       setItem(it)
       setName(it.name ?? '')
@@ -41,7 +48,28 @@ export function ItemDialog({
       setPrice(it.price_new != null ? String(it.price_new) : '')
       setAreaId(it.area_id)
     })
+    pricingStatus()
+      .then((s) => setPriceAvailable(s.available))
+      .catch(() => setPriceAvailable(false))
   }, [itemId])
+
+  async function suggestPrice() {
+    if (!name.trim()) {
+      setPriceError('Bitte zuerst einen Namen vergeben.')
+      return
+    }
+    setPriceError(null)
+    setEstimating(true)
+    try {
+      const res = await estimatePrice(name.trim(), description.trim() || null)
+      setSuggestion(res)
+      if (res.price != null) setPrice(String(res.price))
+    } catch (e: any) {
+      setPriceError(e?.response?.data?.detail || 'Preisvorschlag fehlgeschlagen.')
+    } finally {
+      setEstimating(false)
+    }
+  }
 
   async function save() {
     if (!item) return
@@ -134,7 +162,7 @@ export function ItemDialog({
                 ))}
               </Select>
             </Field>
-            <Field label="Neupreis (€)">
+            <Field label="Neupreis">
               <Input
                 inputMode="decimal"
                 value={price}
@@ -143,6 +171,51 @@ export function ItemDialog({
               />
             </Field>
           </div>
+
+          {priceAvailable && (
+            <div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={suggestPrice}
+                disabled={estimating}
+              >
+                {estimating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 text-indigo-500" />
+                )}
+                Preis vorschlagen
+              </Button>
+              {priceError && <p className="mt-1 text-sm text-red-500">{priceError}</p>}
+              {suggestion && (
+                <div className="mt-2 rounded-xl bg-indigo-50 p-3 text-sm dark:bg-indigo-500/10">
+                  <p className="text-slate-600 dark:text-slate-300">
+                    {suggestion.note ||
+                      (suggestion.mode === 'websearch'
+                        ? 'Vorschlag mit Websuche'
+                        : 'LLM-Schätzung')}
+                  </p>
+                  {suggestion.sources.length > 0 && (
+                    <ul className="mt-1 space-y-0.5">
+                      {suggestion.sources.map((s, i) => (
+                        <li key={i} className="truncate">
+                          <a
+                            href={s}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-indigo-600 hover:underline dark:text-indigo-400"
+                          >
+                            {s}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           <Field label="Beschreibung">
             <Input
               value={description}

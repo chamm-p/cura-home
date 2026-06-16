@@ -33,15 +33,32 @@ export function SettingsDialog({
 }) {
   const [backends, setBackends] = useState<LlmBackend[]>([])
   const [visionId, setVisionId] = useState<string>('')
+  const [pricingId, setPricingId] = useState<string>('')
+  const [pricingMode, setPricingMode] = useState<string>('llm')
   const [form, setForm] = useState({ ...EMPTY })
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; msg: string }>>({})
 
   async function reload() {
-    const [bs, cfg] = await Promise.all([listBackends(), getKv('vision_config')])
+    const [bs, vcfg, pcfg] = await Promise.all([
+      listBackends(),
+      getKv('vision_config'),
+      getKv('pricing_config'),
+    ])
     setBackends(bs)
-    setVisionId((cfg?.backend_id as string) || '')
+    setVisionId((vcfg?.backend_id as string) || '')
+    setPricingId((pcfg?.backend_id as string) || '')
+    setPricingMode((pcfg?.mode as string) || 'llm')
+  }
+
+  async function savePricing(mode: string, backendId: string) {
+    setPricingMode(mode)
+    setPricingId(backendId)
+    await putKv('pricing_config', {
+      mode,
+      ...(backendId ? { backend_id: backendId } : {}),
+    })
   }
 
   useEffect(() => {
@@ -99,6 +116,38 @@ export function SettingsDialog({
                 </option>
               ))}
           </Select>
+        </div>
+
+        {/* Preis-Indikation */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
+              Preis-Indikation
+            </label>
+            <Select
+              value={pricingMode}
+              onChange={(e) => savePricing(e.target.value, pricingId)}
+            >
+              <option value="llm">Nur LLM-Schätzung</option>
+              <option value="websearch">LLM + Websuche</option>
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
+              Preis-Backend
+            </label>
+            <Select
+              value={pricingId}
+              onChange={(e) => savePricing(pricingMode, e.target.value)}
+            >
+              <option value="">Automatisch (erstes aktive)</option>
+              {backends.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name} ({b.model_id})
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
 
         {/* Backend-Liste */}

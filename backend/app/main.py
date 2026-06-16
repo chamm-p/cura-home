@@ -47,15 +47,16 @@ from app.api import (  # noqa: E402
     auth,
     houses,
     items,
+    pricing,
     settings as settings_api,
     users,
     vision,
 )
 
-for _r in (auth, users, houses, areas, items, vision, settings_api):
+for _r in (auth, users, houses, areas, items, vision, pricing, settings_api):
     app.include_router(_r.router)
 
-# Phase 3 — pricing, custom_fields, labels, export werden hier ergänzt.
+# Phase 3 — custom_fields, labels, export werden hier ergänzt.
 
 # Hochgeladene Fotos statisch ausliefern (Thumbnails/Originale).
 os.makedirs(settings.uploads_dir, exist_ok=True)
