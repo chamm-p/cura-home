@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+
+# Env / Secrets
+.env
+deploy/.env
+
+# Uploads (lokale Fotos)
+uploads/
+backend/uploads/
+
+# Claude Code (lokale Settings / Secrets nicht committen)
+.claude/settings.local.json
+
+# OS
+.DS_Store

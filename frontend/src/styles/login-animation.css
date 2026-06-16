@@ -1,0 +1,98 @@
+/* Login-Screen — thematische Animation: schwebende Möbel/Boxen über einem
+   nächtlichen Verlauf, sanft pulsierende „Inventar"-Punkte. */
+
+.login-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(160deg, #1e1b4b 0%, #0f172a 55%, #020617 100%);
+}
+
+/* Weicher Lichtkegel oben, der langsam atmet. */
+.login-bg::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  left: 50%;
+  width: 80vmax;
+  height: 80vmax;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    circle,
+    rgba(99, 102, 241, 0.28) 0%,
+    rgba(99, 102, 241, 0) 60%
+  );
+  animation: breathe 9s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translateX(-50%) scale(1.12);
+  }
+}
+
+/* Schwebende Symbole (Boxen, Möbel, Haus). */
+.float-item {
+  position: absolute;
+  color: rgba(165, 180, 252, 0.18);
+  animation: floatUp linear infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes floatUp {
+  0% {
+    transform: translateY(110vh) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-20vh) rotate(22deg);
+    opacity: 0;
+  }
+}
+
+/* Glaskarte für das Login-Panel. */
+.login-card {
+  position: relative;
+  z-index: 10;
+  backdrop-filter: blur(14px);
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+}
+
+/* Logo-Puls. */
+.logo-pulse {
+  animation: logoPulse 3.5s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(129, 140, 248, 0));
+  }
+  50% {
+    transform: scale(1.06);
+    filter: drop-shadow(0 0 14px rgba(129, 140, 248, 0.55));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-bg::before,
+  .float-item,
+  .logo-pulse {
+    animation: none;
+  }
+}

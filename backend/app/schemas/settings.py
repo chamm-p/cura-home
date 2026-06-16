@@ -1,0 +1,43 @@
+"""Pydantic-Schemas für LLM-Backends und System-Settings."""
+
+from __future__ import annotations
+
+import uuid
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class LlmBackendIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    api_base_url: str = Field(min_length=1, max_length=500)
+    # Write-only: nur beim Anlegen/Ändern gesetzt, nie zurückgegeben.
+    api_key: str | None = None
+    model_id: str = Field(min_length=1, max_length=200)
+    supports_vision: bool = False
+    supports_tools: bool = False
+    is_active: bool = True
+
+
+class LlmBackendUpdate(BaseModel):
+    name: str | None = None
+    api_base_url: str | None = None
+    api_key: str | None = None
+    model_id: str | None = None
+    supports_vision: bool | None = None
+    supports_tools: bool | None = None
+    is_active: bool | None = None
+
+
+class LlmBackendOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    name: str
+    api_base_url: str
+    model_id: str
+    capabilities: dict
+    is_active: bool
+    has_api_key: bool = False
+
+
+class SettingValue(BaseModel):
+    value: dict

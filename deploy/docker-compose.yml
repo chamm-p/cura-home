@@ -1,0 +1,70 @@
+# cura-home — Docker Compose (eigenständiger Stack)
+# Usage:
+#   cp .env.example .env   # dann ausfüllen (Secrets, OIDC)
+#   docker compose up -d --build
+
+# WICHTIG: expliziter Projektname. Ohne ihn würde Compose den Ordnernamen
+# ("deploy") als Projekt nehmen und mit anderen Stacks aus einem deploy/-
+# Ordner (z.B. cura-stro) kollidieren — gleiche Service-/Volume-Namen würden
+# sich gegenseitig überschreiben. Eigener Name = eigene Container & Volumes.
+name: curahome
+
+services:
+  # ─── PostgreSQL ───
+  db:
+    image: postgres:16-alpine
+    container_name: curahome-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-curahome}
+      POSTGRES_USER: ${POSTGRES_USER:-curahome}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [curahome-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-curahome}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend (FastAPI) ───
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: curahome-backend:dev
+    container_name: curahome-backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-curahome}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-curahome}
+    ports:
+      - "${BACKEND_PORT:-9615}:8000"
+    volumes:
+      - uploads:/app/uploads
+    networks: [curahome-net]
+    depends_on:
+      db: { condition: service_healthy }
+
+  # ─── Frontend (nginx) ───
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: curahome-frontend:dev
+    container_name: curahome-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-9611}:80"
+    networks: [curahome-net]
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  uploads:
+
+networks:
+  curahome-net:
+    driver: bridge

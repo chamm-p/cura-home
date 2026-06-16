@@ -1,0 +1,63 @@
+"""Vision-Erkennung: Foto → Inventarname via OpenAI-kompatiblem Vision-LLM."""
+
+from __future__ import annotations
+
+import logging
+
+from json_repair import repair_json
+
+from app.models.llm_backend import LlmBackend
+from app.services.images import normalize_for_vision
+from app.services.llm import LlmError, chat_completion, first_message_content, image_part
+
+logger = logging.getLogger(__name__)
+
+_SYSTEM = (
+    "Du bist ein Assistent zur Inventarerfassung im Haushalt. Du erkennst auf "
+    "Fotos das Hauptobjekt und benennst es knapp und alltagstauglich auf Deutsch."
+)
+
+_USER = (
+    "Welches Inventarobjekt ist auf dem Foto das Hauptmotiv? Antworte AUSSCHLIESSLICH "
+    "als JSON in diesem Format:\n"
+    '{"name": "<kurzer Name, max. 4 Wörter>", "description": "<optional, 1 kurzer Satz>"}\n'
+    "Beispiele für name: \"Mikrowelle\", \"Esstischstuhl\", \"Standventilator\", "
+    "\"Bohrmaschine\". Keine Erklärungen außerhalb des JSON."
+)
+
+
+async def recognize(backend: LlmBackend, image_bytes: bytes) -> dict:
+    """Liefert {name, description}. Wirft LlmError bei Backend-Problemen."""
+    small = normalize_for_vision(image_bytes)
+    messages = [
+        {"role": "system", "content": _SYSTEM},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": _USER},
+                image_part(small, "image/jpeg"),
+            ],
+        },
+    ]
+    data = await chat_completion(backend, messages, max_tokens=300, temperature=0.1)
+    content = first_message_content(data).strip()
+    if not content:
+        raise LlmError("Vision-LLM lieferte leere Antwort")
+
+    # Robust gegen ```json-Fences und kleinere JSON-Fehler.
+    cleaned = content.strip().removeprefix("```json").removeprefix("```").removesuffix("```")
+    try:
+        parsed = repair_json(cleaned, return_objects=True)
+    except Exception:  # noqa: BLE001
+        parsed = {}
+    if not isinstance(parsed, dict):
+        parsed = {}
+
+    name = (parsed.get("name") or "").strip()
+    if not name:
+        # Fallback: erste Zeile als Name nehmen.
+        name = content.splitlines()[0].strip()[:120]
+    return {
+        "name": name[:300],
+        "description": (parsed.get("description") or "").strip()[:1000] or None,
+    }
