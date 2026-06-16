@@ -1,8 +1,16 @@
 import { ImageOff, TriangleAlert } from 'lucide-react'
-import { eur } from '../lib/format'
+import { money } from '../lib/format'
 import { type Item } from '../services/inventory'
 
-export function ItemCard({ item, onClick }: { item: Item; onClick: () => void }) {
+export function ItemCard({
+  item,
+  currency,
+  onClick,
+}: {
+  item: Item
+  currency: string
+  onClick: () => void
+}) {
   const primary = item.photos.find((p) => p.is_primary) ?? item.photos[0]
   return (
     <button
@@ -40,7 +48,7 @@ export function ItemCard({ item, onClick }: { item: Item; onClick: () => void })
               : 'font-semibold text-slate-700 dark:text-slate-200')
           }
         >
-          {item.price_new == null ? 'kein Preis' : eur(item.price_new)}
+          {item.price_new == null ? 'kein Preis' : money(item.price_new, currency)}
         </span>
       </div>
     </button>

@@ -30,6 +30,7 @@ async def _house_out(db: AsyncSession, house: House, user_id: uuid.UUID) -> Hous
     return HouseOut(
         id=house.id,
         name=house.name,
+        currency=house.currency,
         owner_id=house.owner_id,
         role=role,
         is_owner=house.owner_id == user_id,
@@ -62,7 +63,11 @@ async def create_house(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    house = House(name=body.name.strip(), owner_id=user.id)
+    house = House(
+        name=body.name.strip(),
+        currency=body.currency.upper(),
+        owner_id=user.id,
+    )
     db.add(house)
     await db.flush()
     db.add(HouseMember(house_id=house.id, user_id=user.id, role=HouseRole.OWNER))
@@ -78,7 +83,10 @@ async def update_house(
     user: User = Depends(get_current_user),
 ):
     house = await houses_svc.require_owner(db, house_id, user)
-    house.name = body.name.strip()
+    if body.name is not None:
+        house.name = body.name.strip()
+    if body.currency is not None:
+        house.currency = body.currency.upper()
     await db.flush()
     return await _house_out(db, house, user.id)
 

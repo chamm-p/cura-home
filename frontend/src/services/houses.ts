@@ -3,6 +3,7 @@ import api from './api'
 export interface House {
   id: string
   name: string
+  currency: string
   owner_id: string
   role: 'owner' | 'member'
   is_owner: boolean
@@ -18,10 +19,12 @@ export interface HouseMember {
 }
 
 export const listHouses = () => api.get<House[]>('/api/houses').then((r) => r.data)
-export const createHouse = (name: string) =>
-  api.post<House>('/api/houses', { name }).then((r) => r.data)
-export const updateHouse = (id: string, name: string) =>
-  api.put<House>(`/api/houses/${id}`, { name }).then((r) => r.data)
+export const createHouse = (name: string, currency = 'EUR') =>
+  api.post<House>('/api/houses', { name, currency }).then((r) => r.data)
+export const updateHouse = (
+  id: string,
+  body: { name?: string; currency?: string },
+) => api.put<House>(`/api/houses/${id}`, body).then((r) => r.data)
 export const deleteHouse = (id: string) => api.delete(`/api/houses/${id}`)
 
 export const listMembers = (houseId: string) =>

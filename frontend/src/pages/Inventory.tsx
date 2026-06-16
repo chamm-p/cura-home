@@ -10,10 +10,10 @@ import { SettingsDialog } from '../components/SettingsDialog'
 import { Button } from '../components/ui/button'
 import { Select } from '../components/ui/select'
 import { Spinner } from '../components/ui/spinner'
-import { eur } from '../lib/format'
+import { money } from '../lib/format'
 import { type House, listHouses } from '../services/houses'
 import { type Area, type Item, listAreas, listItems, visionStatus } from '../services/inventory'
-import { isAdmin, useAuthStore } from '../store/auth'
+import { displayName, isAdmin, useAuthStore } from '../store/auth'
 import { useHouseStore } from '../store/house'
 
 export default function Inventory() {
@@ -105,6 +105,11 @@ export default function Inventory() {
     [items],
   )
 
+  const currency = useMemo(
+    () => houses.find((h) => h.id === currentHouseId)?.currency ?? 'EUR',
+    [houses, currentHouseId],
+  )
+
   return (
     <div className="min-h-screen pb-24">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
@@ -149,6 +154,11 @@ export default function Inventory() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-5">
+        {user && (
+          <p className="mb-4 text-lg text-slate-700 dark:text-slate-200">
+            Hallo, <span className="font-semibold">{displayName(user)}</span> 👋
+          </p>
+        )}
         {loading ? (
           <div className="flex justify-center py-20">
             <Spinner className="h-7 w-7 text-slate-400" />
@@ -171,12 +181,17 @@ export default function Inventory() {
                     <span className="font-normal text-slate-400">({g.items.length})</span>
                   </h2>
                   <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                    {eur(g.sum)}
+                    {money(g.sum, currency)}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {g.items.map((it) => (
-                    <ItemCard key={it.id} item={it} onClick={() => setDetailId(it.id)} />
+                    <ItemCard
+                      key={it.id}
+                      item={it}
+                      currency={currency}
+                      onClick={() => setDetailId(it.id)}
+                    />
                   ))}
                 </div>
               </section>
@@ -189,7 +204,7 @@ export default function Inventory() {
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
           <div className="text-sm">
             <span className="text-slate-500">Summe</span>{' '}
-            <span className="text-base font-bold">{eur(total)}</span>{' '}
+            <span className="text-base font-bold">{money(total, currency)}</span>{' '}
             <span className="text-slate-400">· {items.length} Objekte</span>
           </div>
           <Button size="lg" onClick={() => setCaptureOpen(true)}>

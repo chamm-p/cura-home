@@ -10,10 +10,12 @@ import {
   removeMember,
   updateHouse,
 } from '../services/houses'
+import { CURRENCIES } from '../lib/format'
 import { useAuthStore } from '../store/auth'
 import { Button } from './ui/button'
 import { Dialog } from './ui/dialog'
 import { Input } from './ui/input'
+import { Select } from './ui/select'
 
 export function HousesDialog({
   open,
@@ -28,6 +30,7 @@ export function HousesDialog({
 }) {
   const me = useAuthStore((s) => s.user)
   const [newName, setNewName] = useState('')
+  const [newCurrency, setNewCurrency] = useState('EUR')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [members, setMembers] = useState<HouseMember[]>([])
   const [email, setEmail] = useState('')
@@ -38,8 +41,9 @@ export function HousesDialog({
     if (!newName.trim()) return
     setBusy(true)
     try {
-      await createHouse(newName.trim())
+      await createHouse(newName.trim(), newCurrency)
       setNewName('')
+      setNewCurrency('EUR')
       onChanged()
     } finally {
       setBusy(false)
@@ -101,6 +105,17 @@ export function HousesDialog({
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && add()}
           />
+          <Select
+            className="w-24"
+            value={newCurrency}
+            onChange={(e) => setNewCurrency(e.target.value)}
+          >
+            {CURRENCIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
           <Button onClick={add} disabled={busy || !newName.trim()}>
             <Plus className="h-4 w-4" />
           </Button>
@@ -118,11 +133,28 @@ export function HousesDialog({
                     defaultValue={h.name}
                     onBlur={(e) => {
                       const v = e.target.value.trim()
-                      if (v && v !== h.name) updateHouse(h.id, v).then(onChanged)
+                      if (v && v !== h.name) updateHouse(h.id, { name: v }).then(onChanged)
                     }}
                   />
                 ) : (
                   <span className="flex-1 font-medium">{h.name}</span>
+                )}
+                {h.is_owner ? (
+                  <Select
+                    className="w-20 shrink-0"
+                    value={h.currency}
+                    onChange={(e) =>
+                      updateHouse(h.id, { currency: e.target.value }).then(onChanged)
+                    }
+                  >
+                    {CURRENCIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <span className="shrink-0 text-xs text-slate-400">{h.currency}</span>
                 )}
                 <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400">
                   {h.is_owner ? <Crown className="h-3.5 w-3.5 text-amber-500" /> : null}

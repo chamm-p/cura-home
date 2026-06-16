@@ -7,15 +7,18 @@ from pydantic import BaseModel, Field
 
 class HouseIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    currency: str = Field(default="EUR", min_length=3, max_length=3)
 
 
 class HouseUpdate(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
 
 
 class HouseOut(BaseModel):
     id: uuid.UUID
     name: str
+    currency: str
     owner_id: uuid.UUID
     role: str
     is_owner: bool

@@ -36,6 +36,10 @@ class House(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    # ISO-4217-Währungscode, gilt für alle Preise/Summen des Hauses.
+    currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, default="EUR", server_default="EUR"
+    )
     owner_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), index=True
     )
