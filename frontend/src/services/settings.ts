@@ -39,3 +39,17 @@ export const getKv = (key: string) =>
   api.get<{ value: Record<string, unknown> }>(`/api/settings/kv/${key}`).then((r) => r.data.value)
 export const putKv = (key: string, value: Record<string, unknown>) =>
   api.put<{ value: Record<string, unknown> }>(`/api/settings/kv/${key}`, { value }).then((r) => r.data.value)
+
+export interface SearchConfig {
+  provider: 'none' | 'searxng' | 'tavily'
+  searxng_url: string | null
+  has_tavily_key: boolean
+}
+
+export const getSearchConfig = () =>
+  api.get<SearchConfig>('/api/settings/search').then((r) => r.data)
+export const putSearchConfig = (body: {
+  provider: string
+  searxng_url?: string | null
+  tavily_api_key?: string | null
+}) => api.put<SearchConfig>('/api/settings/search', body).then((r) => r.data)

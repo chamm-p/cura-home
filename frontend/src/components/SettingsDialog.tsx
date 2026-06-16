@@ -5,8 +5,10 @@ import {
   createBackend,
   deleteBackend,
   getKv,
+  getSearchConfig,
   listBackends,
   putKv,
+  putSearchConfig,
   testBackend,
 } from '../services/settings'
 import { Button } from './ui/button'
@@ -35,21 +37,43 @@ export function SettingsDialog({
   const [visionId, setVisionId] = useState<string>('')
   const [pricingId, setPricingId] = useState<string>('')
   const [pricingMode, setPricingMode] = useState<string>('llm')
+  const [searchProvider, setSearchProvider] = useState<string>('none')
+  const [searxngUrl, setSearxngUrl] = useState<string>('')
+  const [tavilyKey, setTavilyKey] = useState<string>('')
+  const [hasTavilyKey, setHasTavilyKey] = useState(false)
   const [form, setForm] = useState({ ...EMPTY })
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; msg: string }>>({})
 
   async function reload() {
-    const [bs, vcfg, pcfg] = await Promise.all([
+    const [bs, vcfg, pcfg, scfg] = await Promise.all([
       listBackends(),
       getKv('vision_config'),
       getKv('pricing_config'),
+      getSearchConfig(),
     ])
     setBackends(bs)
     setVisionId((vcfg?.backend_id as string) || '')
     setPricingId((pcfg?.backend_id as string) || '')
     setPricingMode((pcfg?.mode as string) || 'llm')
+    setSearchProvider(scfg.provider)
+    setSearxngUrl(scfg.searxng_url || '')
+    setHasTavilyKey(scfg.has_tavily_key)
+    setTavilyKey('')
+  }
+
+  async function saveSearch(next: Partial<{ provider: string; searxng_url: string; tavily_api_key: string }>) {
+    const payload = {
+      provider: next.provider ?? searchProvider,
+      searxng_url: next.searxng_url ?? searxngUrl,
+      ...(next.tavily_api_key ? { tavily_api_key: next.tavily_api_key } : {}),
+    }
+    const res = await putSearchConfig(payload)
+    setSearchProvider(res.provider)
+    setSearxngUrl(res.searxng_url || '')
+    setHasTavilyKey(res.has_tavily_key)
+    setTavilyKey('')
   }
 
   async function savePricing(mode: string, backendId: string) {
@@ -149,6 +173,56 @@ export function SettingsDialog({
             </Select>
           </div>
         </div>
+
+        {/* Such-Provider für die Preis-Websuche */}
+        {pricingMode === 'websearch' && (
+          <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+            <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
+              Such-Provider (Preisrecherche)
+            </label>
+            <Select
+              value={searchProvider}
+              onChange={(e) => saveSearch({ provider: e.target.value })}
+            >
+              <option value="none">Keiner (nur LLM-Schätzung)</option>
+              <option value="searxng">SearXNG (self-hosted)</option>
+              <option value="tavily">Tavily (Cloud)</option>
+            </Select>
+
+            {searchProvider === 'searxng' && (
+              <div className="mt-2">
+                <Input
+                  placeholder="SearXNG-URL (z.B. http://192.168.0.10:32773)"
+                  value={searxngUrl}
+                  onChange={(e) => setSearxngUrl(e.target.value)}
+                  onBlur={() => saveSearch({ searxng_url: searxngUrl })}
+                />
+              </div>
+            )}
+
+            {searchProvider === 'tavily' && (
+              <div className="mt-2 flex gap-2">
+                <Input
+                  type="password"
+                  placeholder={hasTavilyKey ? 'Key gesetzt — neu eingeben zum Ändern' : 'Tavily API-Key'}
+                  value={tavilyKey}
+                  onChange={(e) => setTavilyKey(e.target.value)}
+                />
+                <Button
+                  size="sm"
+                  onClick={() => saveSearch({ tavily_api_key: tavilyKey })}
+                  disabled={!tavilyKey.trim()}
+                >
+                  Speichern
+                </Button>
+              </div>
+            )}
+            <p className="mt-1 text-xs text-slate-400">
+              Es wird echt gesucht; die Treffer gehen als Quellen ans LLM
+              (search-then-extract).
+            </p>
+          </div>
+        )}
 
         {/* Backend-Liste */}
         <div className="space-y-2">

@@ -12,6 +12,7 @@ export interface PricingStatus {
   available: boolean
   mode: string
   backend: string | null
+  search_provider: string
 }
 
 export const pricingStatus = () =>

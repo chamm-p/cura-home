@@ -15,6 +15,8 @@ from app.schemas.settings import (
     LlmBackendIn,
     LlmBackendOut,
     LlmBackendUpdate,
+    SearchConfigIn,
+    SearchConfigOut,
     SettingValue,
 )
 from app.services import settings_store
@@ -154,3 +156,41 @@ async def put_kv(
 ):
     value = await settings_store.set_setting(db, key, body.value, actor_id=admin.id)
     return SettingValue(value=value)
+
+
+# ─── Such-Provider (Preisrecherche: SearXNG / Tavily) ───
+@router.get("/search", response_model=SearchConfigOut)
+async def get_search_config(
+    db: AsyncSession = Depends(get_db), _: User = Depends(get_admin_user)
+):
+    cfg = await settings_store.get_setting(db, "search_config")
+    return SearchConfigOut(
+        provider=cfg.get("provider", "none"),
+        searxng_url=cfg.get("searxng_url"),
+        has_tavily_key=bool(cfg.get("tavily_api_key_encrypted")),
+    )
+
+
+@router.put("/search", response_model=SearchConfigOut)
+async def put_search_config(
+    body: SearchConfigIn,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin_user),
+):
+    existing = await settings_store.get_setting(db, "search_config")
+    # Tavily-Key nur überschreiben, wenn ein neuer (nicht-leerer) Wert kommt.
+    enc = existing.get("tavily_api_key_encrypted")
+    if body.tavily_api_key:
+        enc = encrypt_value(body.tavily_api_key)
+    value = {
+        "provider": body.provider,
+        "searxng_url": (body.searxng_url or "").strip() or None,
+    }
+    if enc:
+        value["tavily_api_key_encrypted"] = enc
+    await settings_store.set_setting(db, "search_config", value, actor_id=admin.id)
+    return SearchConfigOut(
+        provider=value["provider"],
+        searxng_url=value.get("searxng_url"),
+        has_tavily_key=bool(enc),
+    )

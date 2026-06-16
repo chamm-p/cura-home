@@ -41,3 +41,16 @@ class LlmBackendOut(BaseModel):
 
 class SettingValue(BaseModel):
     value: dict
+
+
+class SearchConfigIn(BaseModel):
+    provider: str = "none"  # none | searxng | tavily
+    searxng_url: str | None = None
+    # Write-only: nur beim Setzen, nie zurückgegeben.
+    tavily_api_key: str | None = None
+
+
+class SearchConfigOut(BaseModel):
+    provider: str
+    searxng_url: str | None = None
+    has_tavily_key: bool = False

@@ -20,3 +20,4 @@ class PricingStatus(BaseModel):
     available: bool
     mode: str
     backend: str | None = None
+    search_provider: str = "none"

@@ -39,20 +39,37 @@ async def estimate(
     currency: str,
     mode: str,
     description: str | None = None,
+    search: dict | None = None,
 ) -> dict:
-    """Liefert {price, currency, sources, mode, note}. Wirft LlmError."""
-    ctx = f" Zusatzinfo: {description}." if description else ""
+    """Liefert {price, currency, sources, mode, note}. Wirft LlmError.
 
-    if mode == "websearch":
+    Im Modus ``websearch`` werden — sofern ``search`` echte Treffer enthält —
+    diese als Kontext ans LLM gegeben (search-then-extract). Das LLM darf
+    Quellen nur aus diesen Treffern wählen; das validieren wir nachträglich.
+    Ohne Treffer (Provider nicht konfiguriert/erreichbar) fällt es auf die reine
+    Schätzung zurück.
+    """
+    ctx = f" Zusatzinfo: {description}." if description else ""
+    results = (search or {}).get("results") or []
+    grounded = mode == "websearch" and bool(results)
+
+    if grounded:
+        lines = []
+        if search.get("answer"):
+            lines.append(f"Zusammenfassung: {search['answer']}")
+        for r in results:
+            lines.append(f"- {r['title']} | {r['url']} | {r['content']}")
+        context = "\n".join(lines)
         system = (
-            "Du recherchierst den aktuellen Neupreis (Anschaffungspreis fabrikneu) "
-            "von Haushaltsgegenständen und nennst, wenn möglich, Quellen-URLs."
+            "Du ermittelst den aktuellen Neupreis (fabrikneu) eines "
+            "Haushaltsgegenstands aus echten Suchergebnissen und nennst die "
+            "tatsächlich genutzten Quellen-URLs (NUR aus den vorgegebenen)."
         )
         user = (
-            f"Ermittle den aktuellen Neupreis von: {name}.{ctx} "
-            f"Nutze deine Web-/Such-Fähigkeiten, falls vorhanden. "
-            f'Antworte AUSSCHLIESSLICH als JSON in {currency}: '
-            f'{{"price": <Zahl>, "currency": "{currency}", '
+            f"Produkt: {name}.{ctx}\n\nSuchergebnisse:\n{context}\n\n"
+            f"Ermittle den aktuellen Neupreis. Wähle Quellen-URLs ausschließlich "
+            f"aus obigen Ergebnissen. Antworte AUSSCHLIESSLICH als JSON in "
+            f'{currency}: {{"price": <Zahl>, "currency": "{currency}", '
             f'"sources": ["<url>", ...], "note": "<kurzer Hinweis>"}}'
         )
     else:
@@ -64,7 +81,7 @@ async def estimate(
             f"Schätze den ungefähren Neupreis von: {name}.{ctx} "
             f'Antworte AUSSCHLIESSLICH als JSON in {currency}: '
             f'{{"price": <Zahl>, "currency": "{currency}", '
-            f'"sources": [], "note": "Schätzung ohne Websuche"}}'
+            f'"sources": [], "note": "<kurzer Hinweis>"}}'
         )
 
     data = await chat_completion(
@@ -85,10 +102,21 @@ async def estimate(
     if not isinstance(parsed, dict):
         parsed = {}
 
+    sources = _coerce_sources(parsed.get("sources"))
+    note = (parsed.get("note") or "").strip()[:300] or None
+    if grounded:
+        # Halluzinierte URLs verwerfen: nur echte Treffer zulassen.
+        allowed = {r["url"] for r in results}
+        sources = [s for s in sources if s in allowed] or [r["url"] for r in results[:3]]
+    elif mode == "websearch":
+        # Websuche war gewählt, lieferte aber keine Treffer → ehrlich kennzeichnen.
+        note = "Websuche nicht verfügbar — LLM-Schätzung"
+        sources = []
+
     return {
         "price": _coerce_price(parsed.get("price")),
         "currency": currency,
-        "sources": _coerce_sources(parsed.get("sources")),
+        "sources": sources,
         "mode": mode,
-        "note": (parsed.get("note") or "").strip()[:300] or None,
+        "note": note,
     }
