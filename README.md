@@ -71,3 +71,9 @@ uvicorn app.main:app --reload --port 9615
 # Frontend (Proxy zeigt auf :9615)
 cd frontend && npm install && npm run dev
 ```
+
+## Lizenz
+
+MIT — siehe [LICENSE](LICENSE). Verwendete Open-Source-Abhängigkeiten und deren
+Lizenzen sind in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) aufgeführt
+(alle permissiv, MIT-kompatibel).
