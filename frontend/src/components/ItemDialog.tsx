@@ -1,4 +1,4 @@
-import { Camera, Loader2, Sparkles, Trash2 } from 'lucide-react'
+import { Camera, Loader2, ScanSearch, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import {
   type Area,
@@ -6,7 +6,9 @@ import {
   addPhoto,
   deleteItem,
   getItem,
+  recognizeItem,
   updateItem,
+  visionStatus,
 } from '../services/inventory'
 import { type PriceEstimate, estimatePrice, pricingStatus } from '../services/pricing'
 import { Button } from './ui/button'
@@ -32,6 +34,8 @@ export function ItemDialog({
   const [areaId, setAreaId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [priceAvailable, setPriceAvailable] = useState(false)
+  const [visionAvailable, setVisionAvailable] = useState(false)
+  const [recognizing, setRecognizing] = useState(false)
   const [estimating, setEstimating] = useState(false)
   const [suggestion, setSuggestion] = useState<PriceEstimate | null>(null)
   const [priceError, setPriceError] = useState<string | null>(null)
@@ -51,7 +55,26 @@ export function ItemDialog({
     pricingStatus()
       .then((s) => setPriceAvailable(s.available))
       .catch(() => setPriceAvailable(false))
+    visionStatus()
+      .then((s) => setVisionAvailable(s.available))
+      .catch(() => setVisionAvailable(false))
   }, [itemId])
+
+  async function reRecognize() {
+    if (!item) return
+    setRecognizing(true)
+    try {
+      const updated = await recognizeItem(item.id)
+      setItem(updated)
+      setName(updated.name ?? '')
+      if (updated.description) setDescription(updated.description)
+      onChanged()
+    } catch (e: any) {
+      alert(e?.response?.data?.detail || 'Erkennung fehlgeschlagen.')
+    } finally {
+      setRecognizing(false)
+    }
+  }
 
   async function suggestPrice() {
     if (!name.trim()) {
@@ -144,9 +167,27 @@ export function ItemDialog({
             className="visually-hidden"
             onChange={onAddPhoto}
           />
-          <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
-            <Camera className="h-4 w-4" /> Foto hinzufügen
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
+              <Camera className="h-4 w-4" /> Foto hinzufügen
+            </Button>
+            {visionAvailable && item.photos.length > 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={reRecognize}
+                disabled={recognizing}
+                title="Objekt anhand des Fotos erneut per Vision erkennen"
+              >
+                {recognizing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ScanSearch className="h-4 w-4" />
+                )}
+                Mit Vision erkennen
+              </Button>
+            )}
+          </div>
 
           <Field label="Name">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Objektname" />

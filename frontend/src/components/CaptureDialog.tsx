@@ -1,9 +1,10 @@
 import { Camera, Check, Loader2, Sparkles, TriangleAlert } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   type Area,
-  type CaptureResult,
+  type Item,
   capture,
+  getItem,
   updateItem,
 } from '../services/inventory'
 import { Button } from './ui/button'
@@ -11,10 +12,15 @@ import { Dialog } from './ui/dialog'
 import { Input } from './ui/input'
 import { Select } from './ui/select'
 
-interface Row extends CaptureResult {
+interface Row {
+  item: Item
   draftName: string
   draftPrice: string
   saved: boolean
+  // true, solange die Hintergrund-Erkennung läuft
+  recognizing: boolean
+  // true, sobald ein Name aus der Vision-Erkennung kam
+  fromVision: boolean
 }
 
 export function CaptureDialog({
@@ -49,10 +55,12 @@ export function CaptureDialog({
         const res = await capture(file, areaId)
         setRows((prev) => [
           {
-            ...res,
+            item: res.item,
             draftName: res.item.name ?? '',
             draftPrice: '',
             saved: false,
+            recognizing: res.vision_status === 'pending',
+            fromVision: false,
           },
           ...prev,
         ])
@@ -64,6 +72,57 @@ export function CaptureDialog({
       setBusy(false)
     }
   }
+
+  // Hintergrund-Erkennung pollen: solange Zeilen „recognizing" sind, das Objekt
+  // periodisch nachladen, bis ein Name da ist (oder Timeout).
+  const recognizingKey = rows
+    .filter((r) => r.recognizing)
+    .map((r) => r.item.id)
+    .join(',')
+  useEffect(() => {
+    const ids = rows.filter((r) => r.recognizing).map((r) => r.item.id)
+    if (!ids.length) return
+    let attempts = 0
+    const timer = setInterval(async () => {
+      attempts++
+      const found: Record<string, Item> = {}
+      await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const it = await getItem(id)
+            if (it.name) found[id] = it
+          } catch {
+            /* ignorieren, nächster Versuch */
+          }
+        }),
+      )
+      if (Object.keys(found).length) {
+        setRows((prev) =>
+          prev.map((r) => {
+            const it = found[r.item.id]
+            return it && r.recognizing
+              ? {
+                  ...r,
+                  item: it,
+                  recognizing: false,
+                  fromVision: true,
+                  draftName: r.draftName || (it.name ?? ''),
+                }
+              : r
+          }),
+        )
+        onChanged()
+      }
+      if (attempts >= 12) {
+        setRows((prev) =>
+          prev.map((r) => (ids.includes(r.item.id) ? { ...r, recognizing: false } : r)),
+        )
+        clearInterval(timer)
+      }
+    }, 2500)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recognizingKey])
 
   async function save(idx: number) {
     const row = rows[idx]
@@ -135,7 +194,7 @@ export function CaptureDialog({
           disabled={busy}
         >
           {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
-          {busy ? 'Erkenne…' : 'Foto aufnehmen'}
+          {busy ? 'Lädt…' : 'Foto aufnehmen'}
         </Button>
         {error && <p className="text-sm text-red-500">{error}</p>}
 
@@ -156,14 +215,18 @@ export function CaptureDialog({
                 />
                 <div className="flex flex-1 flex-col gap-1">
                   <div className="flex items-center gap-1">
-                    {row.vision_ok && (
-                      <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
-                    )}
+                    {row.recognizing ? (
+                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-indigo-500" />
+                    ) : row.fromVision ? (
+                      <Sparkles className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                    ) : null}
                     <Input
                       className="h-8"
-                      placeholder="Name"
+                      placeholder={row.recognizing ? 'wird erkannt…' : 'Name'}
                       value={row.draftName}
-                      onChange={(e) => patch(idx, { draftName: e.target.value, saved: false })}
+                      onChange={(e) =>
+                        patch(idx, { draftName: e.target.value, saved: false, recognizing: false })
+                      }
                     />
                   </div>
                   <div className="flex items-center gap-2">

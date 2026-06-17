@@ -65,8 +65,8 @@ class ItemOut(BaseModel):
 
 class CaptureResult(BaseModel):
     item: "ItemOut"
-    vision_ok: bool
-    vision_error: str | None = None
+    # pending = Vision läuft im Hintergrund; skipped = kein Vision-Backend.
+    vision_status: str
 
 
 class AreaSummary(BaseModel):

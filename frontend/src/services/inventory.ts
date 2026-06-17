@@ -43,8 +43,8 @@ export interface InventorySummary {
 
 export interface CaptureResult {
   item: Item
-  vision_ok: boolean
-  vision_error: string | null
+  // 'pending' = Vision läuft im Hintergrund, 'skipped' = kein Vision-Backend
+  vision_status: 'pending' | 'skipped'
 }
 
 // ─── Areas ───
@@ -103,6 +103,10 @@ export function addPhoto(itemId: string, file: File) {
   form.append('file', file)
   return api.post<Item>(`/api/items/${itemId}/photos`, form).then((r) => r.data)
 }
+
+// Erneute Vision-Erkennung eines bestehenden Objekts (anhand seines Fotos).
+export const recognizeItem = (itemId: string) =>
+  api.post<Item>(`/api/items/${itemId}/recognize`).then((r) => r.data)
 
 // ─── Vision ───
 export const visionStatus = () =>

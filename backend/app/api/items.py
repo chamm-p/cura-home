@@ -2,16 +2,27 @@
 
 from __future__ import annotations
 
+import logging
+import os
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
 from app.core.deps import get_current_house, get_current_user
-from app.database import get_db
+from app.database import async_session, get_db
 from app.models.area import Area
 from app.models.house import House
 from app.models.item import Item, PriceSource
@@ -32,7 +43,34 @@ from app.services.images import save_photo
 from app.services.llm import LlmError
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/items", tags=["items"])
+
+
+async def _recognize_background(item_id: uuid.UUID, image_bytes: bytes) -> None:
+    """Läuft NACH der Capture-Antwort: erkennt das Objekt und setzt den Namen.
+
+    Eigene DB-Session (die Request-Session ist längst geschlossen). Ein bereits
+    vom Nutzer vergebener Name wird nicht überschrieben.
+    """
+    async with async_session() as db:
+        try:
+            backend = await settings_store.pick_backend(
+                db, config_key="vision_config", require_vision=True
+            )
+            if backend is None:
+                return
+            result = await vision.recognize(backend, image_bytes)
+            item = await db.get(Item, item_id)
+            if item and not (item.name or "").strip():
+                item.name = result["name"]
+                if result.get("description") and not item.description:
+                    item.description = result["description"]
+                await db.commit()
+        except LlmError as e:
+            logger.info("Hintergrund-Vision fehlgeschlagen (%s): %s", item_id, e)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Hintergrund-Vision Fehler (%s): %s", item_id, e)
 
 
 # ─── Serialisierung ───
@@ -245,12 +283,14 @@ async def add_photo(
 # ─── Capture: Foto → neues Objekt + Vision-Erkennung ───
 @router.post("/capture", response_model=CaptureResult, status_code=201)
 async def capture(
+    background_tasks: BackgroundTasks,
     area_id: uuid.UUID | None = Form(default=None),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     house: House = Depends(get_current_house),
     _: User = Depends(get_current_user),
 ):
+    """Speichert Foto + Objekt sofort; die Vision-Erkennung läuft im Hintergrund."""
     data = await file.read()
     if not data:
         raise HTTPException(400, "Leere Datei")
@@ -262,25 +302,54 @@ async def capture(
 
     rel, _thumb = save_photo(settings.uploads_dir, item.id, data)
     db.add(ItemPhoto(item_id=item.id, file_path=rel, is_primary=True))
-    await db.flush()
+    # Sofort committen, damit der Hintergrund-Task das Objekt sicher findet.
+    await db.commit()
+    await db.refresh(item, attribute_names=["photos"])
 
-    vision_ok = False
-    vision_error: str | None = None
+    # Vision asynchron anstoßen (blockiert die Aufnahme nicht).
+    backend = await settings_store.pick_backend(
+        db, config_key="vision_config", require_vision=True
+    )
+    if backend is not None:
+        background_tasks.add_task(_recognize_background, item.id, data)
+        vision_status = "pending"
+    else:
+        vision_status = "skipped"
+
+    return CaptureResult(item=_item_out(item), vision_status=vision_status)
+
+
+@router.post("/{item_id}/recognize", response_model=ItemOut)
+async def recognize_item(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Erkennt ein bestehendes Objekt erneut anhand seines (primären) Fotos."""
+    item = await _get_item_loaded(db, item_id, user)
+    if not item.photos:
+        raise HTTPException(400, "Kein Foto vorhanden")
     backend = await settings_store.pick_backend(
         db, config_key="vision_config", require_vision=True
     )
     if backend is None:
-        vision_error = "Kein Vision-Backend konfiguriert"
-    else:
-        try:
-            result = await vision.recognize(backend, data)
-            item.name = result["name"]
-            if result.get("description"):
-                item.description = result["description"]
-            vision_ok = True
-        except LlmError as e:
-            vision_error = str(e)
+        raise HTTPException(400, "Kein Vision-Backend konfiguriert")
 
+    primary = next((p for p in item.photos if p.is_primary), item.photos[0])
+    path = os.path.join(settings.uploads_dir, primary.file_path)
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError:
+        raise HTTPException(404, "Foto-Datei nicht gefunden")
+
+    try:
+        result = await vision.recognize(backend, data)
+    except LlmError as e:
+        raise HTTPException(502, str(e))
+
+    item.name = result["name"]
+    if result.get("description"):
+        item.description = result["description"]
     await db.flush()
-    await db.refresh(item, attribute_names=["photos"])
-    return CaptureResult(item=_item_out(item), vision_ok=vision_ok, vision_error=vision_error)
+    return _item_out(item)
