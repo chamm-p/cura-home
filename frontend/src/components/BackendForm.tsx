@@ -8,6 +8,7 @@ import {
 } from '../services/settings'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
+import { Select } from './ui/select'
 
 /**
  * Formular zum Anlegen ODER Bearbeiten eines LLM-Backends. Alle Felder sind
@@ -37,10 +38,10 @@ export function BackendForm({
   const [models, setModels] = useState<string[]>([])
   const [loadingModels, setLoadingModels] = useState(false)
   const [modelsError, setModelsError] = useState<string | null>(null)
+  // Freitext-Modus (für Endpunkte ohne /models oder eigene IDs).
+  const [manual, setManual] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const datalistId = `models-${initial?.id ?? 'new'}`
 
   async function loadModels() {
     if (!baseUrl.trim()) {
@@ -52,8 +53,14 @@ export function BackendForm({
     try {
       const ms = await fetchModels(baseUrl, apiKey || null, initial?.id)
       setModels(ms)
-      if (!ms.length) setModelsError('Keine Modelle gefunden.')
-      else if (!modelId) setModelId(ms[0])
+      if (!ms.length) {
+        setModelsError('Keine Modelle gefunden — bitte Modell-ID manuell eintragen.')
+        setManual(true)
+      } else {
+        // Dropdown mit der KOMPLETTEN Liste zeigen; aktuelle Wahl beibehalten,
+        // sonst nichts vorbelegen (User wählt selbst).
+        setManual(false)
+      }
     } catch (e: any) {
       setModelsError(e?.response?.data?.detail || 'Modelle konnten nicht geladen werden.')
     } finally {
@@ -117,17 +124,38 @@ export function BackendForm({
         onChange={(e) => setApiKey(e.target.value)}
       />
       <div className="flex gap-2">
-        <Input
-          placeholder="Modell-ID (z.B. gpt-4o)"
-          list={datalistId}
-          value={modelId}
-          onChange={(e) => setModelId(e.target.value)}
-        />
-        <datalist id={datalistId}>
-          {models.map((m) => (
-            <option key={m} value={m} />
-          ))}
-        </datalist>
+        {models.length > 0 && !manual ? (
+          <Select
+            value={modelId}
+            onChange={(e) => {
+              if (e.target.value === '__manual__') {
+                setManual(true)
+                setModelId('')
+              } else {
+                setModelId(e.target.value)
+              }
+            }}
+          >
+            <option value="" disabled>
+              Modell wählen… ({models.length})
+            </option>
+            {modelId && !models.includes(modelId) && (
+              <option value={modelId}>{modelId} (aktuell)</option>
+            )}
+            {models.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+            <option value="__manual__">— manuell eingeben —</option>
+          </Select>
+        ) : (
+          <Input
+            placeholder="Modell-ID (z.B. gpt-4o)"
+            value={modelId}
+            onChange={(e) => setModelId(e.target.value)}
+          />
+        )}
         <Button
           variant="secondary"
           onClick={loadModels}
@@ -143,9 +171,9 @@ export function BackendForm({
         </Button>
       </div>
       {modelsError && <p className="text-sm text-amber-600">{modelsError}</p>}
-      {models.length > 0 && !modelsError && (
+      {models.length > 0 && !manual && (
         <p className="text-xs text-slate-400">
-          {models.length} Modelle geladen — Feld antippen für Vorschläge.
+          {models.length} Modelle geladen — im Dropdown wählen.
         </p>
       )}
 
