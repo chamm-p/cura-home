@@ -26,11 +26,11 @@ export function ItemRow({
               className="h-11 w-11 rounded-lg object-cover"
               loading="lazy"
             />
-            {/* Hover-Vorschau (Desktop) */}
+            {/* Hover-Vorschau (Desktop): volles Bild in normaler Breite */}
             <img
               src={primary.url}
               alt=""
-              className="pointer-events-none absolute left-12 top-1/2 z-30 hidden h-48 w-48 -translate-y-1/2 rounded-xl object-cover shadow-2xl ring-1 ring-black/10 group-hover:block"
+              className="pointer-events-none absolute left-14 top-1/2 z-40 hidden w-72 max-w-[70vw] -translate-y-1/2 rounded-xl bg-white object-contain p-1 shadow-2xl ring-1 ring-black/10 group-hover:block dark:bg-slate-800"
             />
           </>
         ) : (
