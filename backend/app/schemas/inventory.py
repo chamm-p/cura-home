@@ -56,6 +56,7 @@ class ItemOut(BaseModel):
     description: str | None
     price_new: float | None
     price_source: str | None
+    price_determined_at: datetime | None = None
     is_catalogued: bool
     custom_values: dict
     created_at: datetime

@@ -16,3 +16,14 @@ export function money(n: number | null | undefined, currency = 'EUR'): string {
     currency,
   }).format(n)
 }
+
+export function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return new Intl.DateTimeFormat('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(d)
+}

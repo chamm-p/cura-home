@@ -1,5 +1,5 @@
 import { ImageOff, TriangleAlert } from 'lucide-react'
-import { money } from '../lib/format'
+import { fmtDate, money } from '../lib/format'
 import { type Item } from '../services/inventory'
 
 export function ItemCard({
@@ -40,16 +40,23 @@ export function ItemCard({
         <span className="line-clamp-2 font-medium">
           {item.name || <span className="italic text-slate-400">Unbenannt</span>}
         </span>
-        <span
-          className={
-            'mt-auto text-sm ' +
-            (item.price_new == null
-              ? 'text-slate-400'
-              : 'font-semibold text-slate-700 dark:text-slate-200')
-          }
-        >
-          {item.price_new == null ? 'kein Preis' : money(item.price_new, currency)}
-        </span>
+        <div className="mt-auto">
+          <span
+            className={
+              'text-sm ' +
+              (item.price_new == null
+                ? 'text-slate-400'
+                : 'font-semibold text-slate-700 dark:text-slate-200')
+            }
+          >
+            {item.price_new == null ? 'kein Preis' : money(item.price_new, currency)}
+          </span>
+          {item.price_new != null && item.price_determined_at && (
+            <span className="block text-[11px] text-slate-400">
+              Preis vom {fmtDate(item.price_determined_at)}
+            </span>
+          )}
+        </div>
       </div>
     </button>
   )

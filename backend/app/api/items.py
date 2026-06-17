@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import (
     APIRouter,
@@ -89,6 +90,7 @@ def _item_out(item: Item) -> ItemOut:
         description=item.description,
         price_new=float(item.price_new) if item.price_new is not None else None,
         price_source=item.price_source.value if item.price_source else None,
+        price_determined_at=item.price_determined_at,
         is_catalogued=item.is_catalogued,
         custom_values=item.custom_values or {},
         created_at=item.created_at,
@@ -208,6 +210,7 @@ async def create_item(
         description=body.description,
         price_new=body.price_new,
         price_source=PriceSource.MANUAL if body.price_new is not None else None,
+        price_determined_at=datetime.now(timezone.utc) if body.price_new is not None else None,
         is_catalogued=bool(body.is_catalogued) if body.is_catalogued is not None else bool(body.name),
         custom_values=body.custom_values or {},
     )
@@ -234,9 +237,16 @@ async def update_item(
     if "description" in data:
         item.description = data["description"]
     if "price_new" in data:
-        item.price_new = data["price_new"]
+        new_price = data["price_new"]
+        old_price = float(item.price_new) if item.price_new is not None else None
+        # Ermittlungsdatum nur bei tatsächlicher Preisänderung aktualisieren.
+        if new_price != old_price:
+            item.price_determined_at = (
+                datetime.now(timezone.utc) if new_price is not None else None
+            )
+        item.price_new = new_price
         # Manuelle Preiseingabe markiert die Quelle als manuell.
-        item.price_source = PriceSource.MANUAL if data["price_new"] is not None else None
+        item.price_source = PriceSource.MANUAL if new_price is not None else None
     if "custom_values" in data and data["custom_values"] is not None:
         item.custom_values = data["custom_values"]
     if "is_catalogued" in data and data["is_catalogued"] is not None:

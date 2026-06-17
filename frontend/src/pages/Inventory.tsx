@@ -1,4 +1,13 @@
-import { Boxes, Camera, FolderTree, Home, LogOut, Settings } from 'lucide-react'
+import {
+  Boxes,
+  Camera,
+  FolderTree,
+  Home,
+  LayoutGrid,
+  List,
+  LogOut,
+  Settings,
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AreasDialog } from '../components/AreasDialog'
 import { CaptureDialog } from '../components/CaptureDialog'
@@ -6,6 +15,7 @@ import { FilterBar, type Filters } from '../components/FilterBar'
 import { HousesDialog } from '../components/HousesDialog'
 import { ItemCard } from '../components/ItemCard'
 import { ItemDialog } from '../components/ItemDialog'
+import { ItemRow } from '../components/ItemRow'
 import { SettingsDialog } from '../components/SettingsDialog'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { Button } from '../components/ui/button'
@@ -16,12 +26,15 @@ import { type House, listHouses } from '../services/houses'
 import { type Area, type Item, listAreas, listItems, visionStatus } from '../services/inventory'
 import { displayName, isAdmin, useAuthStore } from '../store/auth'
 import { useHouseStore } from '../store/house'
+import { useUiStore } from '../store/ui'
 
 export default function Inventory() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const currentHouseId = useHouseStore((s) => s.currentHouseId)
   const setCurrentHouse = useHouseStore((s) => s.setCurrentHouse)
+  const viewMode = useUiStore((s) => s.viewMode)
+  const setViewMode = useUiStore((s) => s.setViewMode)
 
   const [houses, setHouses] = useState<House[]>([])
   const [areas, setAreas] = useState<Area[]>([])
@@ -150,8 +163,34 @@ export default function Inventory() {
             </Button>
           </div>
         </div>
-        <div className="mx-auto max-w-5xl px-4 pb-3">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 pb-3">
           <FilterBar areas={areas} filters={filters} onChange={setFilters} />
+          <div className="flex shrink-0 overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700">
+            <button
+              onClick={() => setViewMode('tiles')}
+              title="Kacheln"
+              className={
+                'flex h-10 w-10 items-center justify-center ' +
+                (viewMode === 'tiles'
+                  ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
+                  : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800')
+              }
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              title="Liste"
+              className={
+                'flex h-10 w-10 items-center justify-center border-l border-slate-300 dark:border-slate-700 ' +
+                (viewMode === 'list'
+                  ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
+                  : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800')
+              }
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -186,16 +225,29 @@ export default function Inventory() {
                     {money(g.sum, currency)}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                  {g.items.map((it) => (
-                    <ItemCard
-                      key={it.id}
-                      item={it}
-                      currency={currency}
-                      onClick={() => setDetailId(it.id)}
-                    />
-                  ))}
-                </div>
+                {viewMode === 'tiles' ? (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                    {g.items.map((it) => (
+                      <ItemCard
+                        key={it.id}
+                        item={it}
+                        currency={currency}
+                        onClick={() => setDetailId(it.id)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {g.items.map((it) => (
+                      <ItemRow
+                        key={it.id}
+                        item={it}
+                        currency={currency}
+                        onClick={() => setDetailId(it.id)}
+                      />
+                    ))}
+                  </div>
+                )}
               </section>
             ))}
           </div>

@@ -1,5 +1,6 @@
 import { Camera, Loader2, ScanSearch, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { fmtDate } from '../lib/format'
 import {
   type Area,
   type Item,
@@ -210,6 +211,11 @@ export function ItemDialog({
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="z.B. 89,99"
               />
+              {item.price_new != null && item.price_determined_at && (
+                <p className="mt-1 text-xs text-slate-400">
+                  ermittelt am {fmtDate(item.price_determined_at)}
+                </p>
+              )}
             </Field>
           </div>
 

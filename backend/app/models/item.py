@@ -55,6 +55,10 @@ class Item(Base):
         ),
         nullable=True,
     )
+    # Wann der Neupreis ermittelt wurde (ein Preis altert — heute ≠ in 5 Jahren).
+    price_determined_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     # Explizites Katalogisiert-Flag: gesetzt, sobald der Nutzer das Objekt
     # benannt/bestätigt hat. Frisch fotografierte Objekte sind unkatalogisiert.
     is_catalogued: Mapped[bool] = mapped_column(Boolean, default=False)

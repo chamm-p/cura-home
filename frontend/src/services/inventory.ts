@@ -20,6 +20,7 @@ export interface Item {
   description: string | null
   price_new: number | null
   price_source: string | null
+  price_determined_at: string | null
   is_catalogued: boolean
   custom_values: Record<string, unknown>
   created_at: string
