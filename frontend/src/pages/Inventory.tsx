@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   List,
   LogOut,
+  Printer,
   Settings,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -17,6 +18,7 @@ import { ItemCard } from '../components/ItemCard'
 import { ItemDialog } from '../components/ItemDialog'
 import { ItemRow } from '../components/ItemRow'
 import { SettingsDialog } from '../components/SettingsDialog'
+import { openInventoryPdf } from '../services/export'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { Button } from '../components/ui/button'
 import { Select } from '../components/ui/select'
@@ -52,6 +54,18 @@ export default function Inventory() {
   const [housesOpen, setHousesOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+
+  async function exportPdf() {
+    setExporting(true)
+    try {
+      await openInventoryPdf(filters)
+    } catch {
+      alert('PDF-Export fehlgeschlagen.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   // Häuser laden + aktives Haus bestimmen.
   const loadHouses = useCallback(async () => {
@@ -151,6 +165,19 @@ export default function Inventory() {
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setAreasOpen(true)} title="Bereiche">
               <FolderTree className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={exportPdf}
+              disabled={exporting}
+              title="Inventarliste als PDF / drucken"
+            >
+              {exporting ? (
+                <Spinner className="h-4 w-4" />
+              ) : (
+                <Printer className="h-4 w-4" />
+              )}
             </Button>
             {isAdmin(user) && (
               <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)} title="Einstellungen">

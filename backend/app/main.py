@@ -45,6 +45,7 @@ async def health():
 from app.api import (  # noqa: E402
     areas,
     auth,
+    export,
     houses,
     items,
     pricing,
@@ -53,10 +54,10 @@ from app.api import (  # noqa: E402
     vision,
 )
 
-for _r in (auth, users, houses, areas, items, vision, pricing, settings_api):
+for _r in (auth, users, houses, areas, items, vision, pricing, export, settings_api):
     app.include_router(_r.router)
 
-# Phase 3 — custom_fields, labels, export werden hier ergänzt.
+# Phase 3 — custom_fields, labels werden hier ergänzt.
 
 # Hochgeladene Fotos statisch ausliefern (Thumbnails/Originale).
 os.makedirs(settings.uploads_dir, exist_ok=True)
