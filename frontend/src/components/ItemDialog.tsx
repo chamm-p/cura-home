@@ -41,6 +41,8 @@ export function ItemDialog({
   const [areaId, setAreaId] = useState<string | null>(null)
   const [forSale, setForSale] = useState(false)
   const [forDisposal, setForDisposal] = useState(false)
+  const [catBusy, setCatBusy] = useState(false)
+  const [catHint, setCatHint] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [priceAvailable, setPriceAvailable] = useState(false)
   const [visionAvailable, setVisionAvailable] = useState(false)
@@ -72,6 +74,7 @@ export function ItemDialog({
       .catch(() => setVisionAvailable(false))
   }, [itemId])
 
+  // Auto-Vorschlag beim Verlassen des Namensfelds (nur wenn noch keine Kategorie).
   async function autoCategorize() {
     if (!name.trim() || category) return
     try {
@@ -79,6 +82,25 @@ export function ItemDialog({
       if (cat) setCategory((cur) => cur || cat)
     } catch {
       /* ignorieren */
+    }
+  }
+
+  // Expliziter Button — schlägt vor (überschreibt auch eine bestehende Wahl).
+  async function suggestCategory() {
+    if (!name.trim()) {
+      setCatHint('Bitte zuerst einen Namen vergeben.')
+      return
+    }
+    setCatHint(null)
+    setCatBusy(true)
+    try {
+      const cat = await categorizeName(name.trim())
+      if (cat) setCategory(cat)
+      else setCatHint('Keine Kategorie ermittelt — ist ein LLM-Backend konfiguriert?')
+    } catch {
+      setCatHint('Vorschlag fehlgeschlagen.')
+    } finally {
+      setCatBusy(false)
     }
   }
 
@@ -251,14 +273,30 @@ export function ItemDialog({
             />
           </Field>
           <Field label="Kategorie">
-            <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-              <option value="">— keine —</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </Select>
+            <div className="flex gap-2">
+              <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+                <option value="">— keine —</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                variant="secondary"
+                onClick={suggestCategory}
+                disabled={catBusy || !name.trim()}
+                title="Kategorie per KI vorschlagen"
+              >
+                {catBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 text-indigo-500" />
+                )}
+                Vorschlagen
+              </Button>
+            </div>
+            {catHint && <p className="mt-1 text-xs text-amber-600">{catHint}</p>}
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Bereich">

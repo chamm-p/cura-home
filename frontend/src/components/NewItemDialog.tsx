@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react'
+import { Loader2, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { CATEGORIES } from '../lib/categories'
 import { type Area, categorizeName, createItem } from '../services/inventory'
@@ -32,8 +32,9 @@ export function NewItemDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [catBusy, setCatBusy] = useState(false)
+  const [catHint, setCatHint] = useState<string | null>(null)
 
-  // Kategorie aus dem Namen vorschlagen, sofern noch keine gewählt ist.
+  // Auto-Vorschlag beim Verlassen des Namensfelds (nur wenn noch keine Kategorie).
   async function autoCategorize() {
     if (!name.trim() || category) return
     setCatBusy(true)
@@ -42,6 +43,25 @@ export function NewItemDialog({
       if (cat) setCategory((cur) => cur || cat)
     } catch {
       /* still ignorieren */
+    } finally {
+      setCatBusy(false)
+    }
+  }
+
+  // Expliziter Button (überschreibt auch eine bestehende Wahl).
+  async function suggestCategory() {
+    if (!name.trim()) {
+      setCatHint('Bitte zuerst einen Namen vergeben.')
+      return
+    }
+    setCatHint(null)
+    setCatBusy(true)
+    try {
+      const cat = await categorizeName(name.trim())
+      if (cat) setCategory(cat)
+      else setCatHint('Keine Kategorie ermittelt — ist ein LLM-Backend konfiguriert?')
+    } catch {
+      setCatHint('Vorschlag fehlgeschlagen.')
     } finally {
       setCatBusy(false)
     }
@@ -101,15 +121,31 @@ export function NewItemDialog({
             placeholder="Objektname"
           />
         </Field>
-        <Field label={catBusy ? 'Kategorie (wird vorgeschlagen…)' : 'Kategorie'}>
-          <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="">— keine —</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </Select>
+        <Field label="Kategorie">
+          <div className="flex gap-2">
+            <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="">— keine —</option>
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+            <Button
+              variant="secondary"
+              onClick={suggestCategory}
+              disabled={catBusy || !name.trim()}
+              title="Kategorie per KI vorschlagen"
+            >
+              {catBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 text-indigo-500" />
+              )}
+              Vorschlagen
+            </Button>
+          </div>
+          {catHint && <p className="mt-1 text-xs text-amber-600">{catHint}</p>}
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Bereich">
