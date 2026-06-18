@@ -223,7 +223,7 @@ export default function Inventory() {
             onClick={() => (selectionMode ? exitSelection() : setSelectionMode(true))}
             title="Auswählen"
             className={
-              'flex h-10 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium ' +
+              'flex h-9 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium ' +
               (selectionMode
                 ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
                 : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800')
@@ -232,12 +232,12 @@ export default function Inventory() {
             <CheckSquare className="h-4 w-4" />
             <span className="hidden sm:inline">Auswählen</span>
           </button>
-          <div className="flex overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700">
+          <div className="flex h-9 overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700">
             <button
               onClick={() => setViewMode('tiles')}
               title="Kacheln"
               className={
-                'flex h-10 w-10 items-center justify-center ' +
+                'flex w-9 items-center justify-center ' +
                 (viewMode === 'tiles'
                   ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
                   : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800')
@@ -249,7 +249,7 @@ export default function Inventory() {
               onClick={() => setViewMode('list')}
               title="Liste"
               className={
-                'flex h-10 w-10 items-center justify-center border-l border-slate-300 dark:border-slate-700 ' +
+                'flex w-9 items-center justify-center border-l border-slate-300 dark:border-slate-700 ' +
                 (viewMode === 'list'
                   ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
                   : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800')
