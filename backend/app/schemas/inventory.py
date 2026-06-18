@@ -72,10 +72,12 @@ class ItemOut(BaseModel):
     photos: list[PhotoOut] = []
 
 
-class CaptureResult(BaseModel):
-    item: "ItemOut"
-    # pending = Vision läuft im Hintergrund; skipped = kein Vision-Backend.
-    vision_status: str
+class ProcessRequest(BaseModel):
+    item_ids: list[uuid.UUID]
+
+
+class ProcessResult(BaseModel):
+    scheduled: int
 
 
 class AreaSummary(BaseModel):

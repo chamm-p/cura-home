@@ -32,15 +32,16 @@ from app.models.item_photo import ItemPhoto
 from app.models.user import User
 from app.schemas.inventory import (
     AreaSummary,
-    CaptureResult,
     InventorySummary,
     ItemIn,
     ItemOut,
     ItemUpdate,
     PhotoOut,
+    ProcessRequest,
+    ProcessResult,
 )
 from app.services import houses as houses_svc
-from app.services import settings_store, vision
+from app.services import pricing, search, settings_store, vision
 from app.services.images import save_photo
 from app.services.llm import LlmError
 
@@ -49,37 +50,78 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/items", tags=["items"])
 
 
-async def _recognize_background(item_id: uuid.UUID, image_bytes: bytes) -> None:
-    """Läuft NACH der Capture-Antwort: erkennt das Objekt und setzt den Namen.
+def _read_primary_photo(item: Item) -> bytes | None:
+    if not item.photos:
+        return None
+    primary = next((p for p in item.photos if p.is_primary), item.photos[0])
+    path = os.path.join(settings.uploads_dir, primary.file_path)
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except OSError:
+        return None
 
-    Eigene DB-Session (die Request-Session ist längst geschlossen). Ein bereits
-    vom Nutzer vergebener Name wird nicht überschrieben.
+
+async def _process_items_background(item_ids: list[uuid.UUID]) -> None:
+    """Läuft nach „Speichern & erkennen": je Objekt Vision-Erkennung + Pricing,
+    danach needs_verification=True. Eigene DB-Session; pro Objekt committen,
+    damit Teilergebnisse sofort sichtbar werden. Bereits gesetzte Werte (vom
+    Nutzer) werden nicht überschrieben.
     """
     async with async_session() as db:
-        try:
-            backend = await settings_store.pick_backend(
-                db, config_key="vision_config", require_vision=True
+        vbackend = await settings_store.pick_backend(
+            db, config_key="vision_config", require_vision=True
+        )
+        pcfg = await settings_store.get_setting(db, "pricing_config")
+        pmode = pcfg.get("mode", "llm")
+        pbackend = await settings_store.pick_backend(db, config_key="pricing_config")
+
+        for item_id in item_ids:
+            item = await db.scalar(
+                select(Item).where(Item.id == item_id).options(selectinload(Item.photos))
             )
-            if backend is None:
-                return
-            result = await vision.recognize(backend, image_bytes)
-            item = await db.get(Item, item_id)
-            if item:
-                changed = False
-                if not (item.name or "").strip():
-                    item.name = result["name"]
-                    changed = True
-                    if result.get("description") and not item.description:
-                        item.description = result["description"]
-                if result.get("category") and not item.category:
-                    item.category = result["category"]
-                    changed = True
-                if changed:
-                    await db.commit()
-        except LlmError as e:
-            logger.info("Hintergrund-Vision fehlgeschlagen (%s): %s", item_id, e)
-        except Exception as e:  # noqa: BLE001
-            logger.warning("Hintergrund-Vision Fehler (%s): %s", item_id, e)
+            if item is None:
+                continue
+
+            # 1) Vision (Name/Kategorie) — nur falls noch nicht gesetzt.
+            if vbackend is not None:
+                data = _read_primary_photo(item)
+                if data:
+                    try:
+                        res = await vision.recognize(vbackend, data)
+                        if not (item.name or "").strip():
+                            item.name = res["name"]
+                        if res.get("category") and not item.category:
+                            item.category = res["category"]
+                        if res.get("description") and not item.description:
+                            item.description = res["description"]
+                    except LlmError as e:
+                        logger.info("Batch-Vision (%s) fehlgeschlagen: %s", item_id, e)
+
+            # 2) Pricing — braucht einen Namen, nur falls noch kein Preis.
+            if pbackend is not None and (item.name or "").strip() and item.price_new is None:
+                try:
+                    house = await db.get(House, item.house_id)
+                    currency = house.currency if house else "EUR"
+                    search_data = None
+                    if pmode == "websearch":
+                        search_data = await search.web_search(
+                            db, f"{item.name} Preis neu kaufen"
+                        )
+                    pres = await pricing.estimate(
+                        pbackend, item.name, currency, pmode, item.description, search=search_data
+                    )
+                    if pres.get("price") is not None:
+                        item.price_new = pres["price"]
+                        item.price_source = (
+                            PriceSource.WEBSEARCH if pmode == "websearch" else PriceSource.LLM
+                        )
+                        item.price_determined_at = datetime.now(timezone.utc)
+                except LlmError as e:
+                    logger.info("Batch-Pricing (%s) fehlgeschlagen: %s", item_id, e)
+
+            item.needs_verification = True
+            await db.commit()
 
 
 # ─── Serialisierung ───
@@ -333,16 +375,16 @@ async def add_photo(
 
 
 # ─── Capture: Foto → neues Objekt + Vision-Erkennung ───
-@router.post("/capture", response_model=CaptureResult, status_code=201)
+@router.post("/capture", response_model=ItemOut, status_code=201)
 async def capture(
-    background_tasks: BackgroundTasks,
     area_id: uuid.UUID | None = Form(default=None),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     house: House = Depends(get_current_house),
     _: User = Depends(get_current_user),
 ):
-    """Speichert Foto + Objekt sofort; die Vision-Erkennung läuft im Hintergrund."""
+    """Legt sofort Objekt + Foto an (ohne Erkennung). Die Erkennung + Pricing
+    werden später per /items/process über alle Objekte der Sitzung angestoßen."""
     data = await file.read()
     if not data:
         raise HTTPException(400, "Leere Datei")
@@ -357,21 +399,28 @@ async def capture(
     except Exception:  # noqa: BLE001
         raise HTTPException(400, "Bild konnte nicht verarbeitet werden")
     db.add(ItemPhoto(item_id=item.id, file_path=rel, is_primary=True))
-    # Sofort committen, damit der Hintergrund-Task das Objekt sicher findet.
-    await db.commit()
+    await db.flush()
     await db.refresh(item, attribute_names=["photos"])
+    return _item_out(item)
 
-    # Vision asynchron anstoßen (blockiert die Aufnahme nicht).
-    backend = await settings_store.pick_backend(
-        db, config_key="vision_config", require_vision=True
-    )
-    if backend is not None:
-        background_tasks.add_task(_recognize_background, item.id, data)
-        vision_status = "pending"
-    else:
-        vision_status = "skipped"
 
-    return CaptureResult(item=_item_out(item), vision_status=vision_status)
+@router.post("/process", response_model=ProcessResult, status_code=202)
+async def process_items(
+    body: ProcessRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Stößt asynchron Erkennung + Pricing über die übergebenen Objekte an
+    (typisch: die frisch erfassten). Nur Objekte aus Häusern des Users."""
+    accessible = []
+    for item_id in body.item_ids:
+        item = await db.get(Item, item_id)
+        if item and await houses_svc.get_membership(db, item.house_id, user.id):
+            accessible.append(item.id)
+    if accessible:
+        background_tasks.add_task(_process_items_background, accessible)
+    return ProcessResult(scheduled=len(accessible))
 
 
 @router.post("/{item_id}/recognize", response_model=ItemOut)

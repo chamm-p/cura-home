@@ -46,12 +46,6 @@ export interface InventorySummary {
   total_items: number
 }
 
-export interface CaptureResult {
-  item: Item
-  // 'pending' = Vision läuft im Hintergrund, 'skipped' = kein Vision-Backend
-  vision_status: 'pending' | 'skipped'
-}
-
 // ─── Areas ───
 export const listAreas = () => api.get<Area[]>('/api/areas').then((r) => r.data)
 export const createArea = (name: string) =>
@@ -112,8 +106,14 @@ export function capture(file: File, areaId: string | null) {
   const form = new FormData()
   form.append('file', file)
   if (areaId) form.append('area_id', areaId)
-  return api.post<CaptureResult>('/api/items/capture', form).then((r) => r.data)
+  return api.post<Item>('/api/items/capture', form).then((r) => r.data)
 }
+
+// Stößt Erkennung + Pricing asynchron über die (neuen) Objekte an.
+export const processItems = (itemIds: string[]) =>
+  api
+    .post<{ scheduled: number }>('/api/items/process', { item_ids: itemIds })
+    .then((r) => r.data)
 
 export function addPhoto(itemId: string, file: File) {
   const form = new FormData()
