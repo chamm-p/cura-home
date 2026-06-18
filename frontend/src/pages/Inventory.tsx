@@ -45,6 +45,7 @@ export default function Inventory() {
     area_id: null,
     uncatalogued: false,
     no_price: false,
+    category: null,
   })
   const [loading, setLoading] = useState(true)
   const [visionAvailable, setVisionAvailable] = useState(false)
@@ -80,7 +81,7 @@ export default function Inventory() {
     visionStatus()
       .then((s) => setVisionAvailable(s.available))
       .catch(() => setVisionAvailable(false))
-    setFilters((f) => ({ ...f, area_id: null }))
+    setFilters((f) => ({ ...f, area_id: null, category: null }))
   }, [currentHouseId, loadAreas])
 
   useEffect(() => {

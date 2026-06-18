@@ -17,6 +17,7 @@ export interface Item {
   id: string
   area_id: string | null
   name: string | null
+  category: string | null
   description: string | null
   price_new: number | null
   price_source: string | null
@@ -61,6 +62,7 @@ export interface ItemFilters {
   area_id?: string | null
   uncatalogued?: boolean
   no_price?: boolean
+  category?: string | null
 }
 
 export function listItems(filters: ItemFilters = {}) {
@@ -68,6 +70,7 @@ export function listItems(filters: ItemFilters = {}) {
   if (filters.area_id) params.area_id = filters.area_id
   if (filters.uncatalogued) params.uncatalogued = 'true'
   if (filters.no_price) params.no_price = 'true'
+  if (filters.category) params.category = filters.category
   return api.get<Item[]>('/api/items', { params }).then((r) => r.data)
 }
 
@@ -77,6 +80,7 @@ export const getItem = (id: string) =>
 export interface ItemPayload {
   area_id?: string | null
   name?: string | null
+  category?: string | null
   description?: string | null
   price_new?: number | null
   is_catalogued?: boolean

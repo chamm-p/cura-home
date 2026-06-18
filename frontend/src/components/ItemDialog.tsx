@@ -1,5 +1,6 @@
 import { Camera, Loader2, ScanSearch, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { CATEGORIES } from '../lib/categories'
 import { fmtDate } from '../lib/format'
 import {
   type Area,
@@ -30,6 +31,7 @@ export function ItemDialog({
 }) {
   const [item, setItem] = useState<Item | null>(null)
   const [name, setName] = useState('')
+  const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
   const [areaId, setAreaId] = useState<string | null>(null)
@@ -49,6 +51,7 @@ export function ItemDialog({
     getItem(itemId).then((it) => {
       setItem(it)
       setName(it.name ?? '')
+      setCategory(it.category ?? '')
       setDescription(it.description ?? '')
       setPrice(it.price_new != null ? String(it.price_new) : '')
       setAreaId(it.area_id)
@@ -68,6 +71,7 @@ export function ItemDialog({
       const updated = await recognizeItem(item.id)
       setItem(updated)
       setName(updated.name ?? '')
+      setCategory(updated.category ?? '')
       if (updated.description) setDescription(updated.description)
       onChanged()
     } catch (e: any) {
@@ -102,6 +106,7 @@ export function ItemDialog({
       const p = price.trim() ? Number(price.replace(',', '.')) : null
       await updateItem(item.id, {
         name: name.trim() || null,
+        category: category || null,
         description: description.trim() || null,
         price_new: Number.isFinite(p as number) ? p : null,
         area_id: areaId,
@@ -192,6 +197,16 @@ export function ItemDialog({
 
           <Field label="Name">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Objektname" />
+          </Field>
+          <Field label="Kategorie">
+            <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="">— keine —</option>
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Bereich">

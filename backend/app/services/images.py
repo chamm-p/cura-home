@@ -7,7 +7,11 @@ import logging
 import os
 import uuid
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageFile, ImageOps
+
+# Tolerant gegenüber leicht abgeschnittenen Bildern (kommt bei Handy-Uploads
+# gelegentlich vor) — sonst wirft Pillow „Truncated File Read".
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 logger = logging.getLogger(__name__)
 

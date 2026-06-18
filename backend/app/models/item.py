@@ -45,6 +45,8 @@ class Item(Base):
         index=True,
     )
     name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # Grobe Objektart (Möbel, Technik, …) — vom Vision-LLM vorgeschlagen.
+    category: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     price_new: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     price_source: Mapped[PriceSource | None] = mapped_column(

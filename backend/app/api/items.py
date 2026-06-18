@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
+from app.constants import normalize_category
 from app.core.deps import get_current_house, get_current_user
 from app.database import async_session, get_db
 from app.models.area import Area
@@ -63,11 +64,18 @@ async def _recognize_background(item_id: uuid.UUID, image_bytes: bytes) -> None:
                 return
             result = await vision.recognize(backend, image_bytes)
             item = await db.get(Item, item_id)
-            if item and not (item.name or "").strip():
-                item.name = result["name"]
-                if result.get("description") and not item.description:
-                    item.description = result["description"]
-                await db.commit()
+            if item:
+                changed = False
+                if not (item.name or "").strip():
+                    item.name = result["name"]
+                    changed = True
+                    if result.get("description") and not item.description:
+                        item.description = result["description"]
+                if result.get("category") and not item.category:
+                    item.category = result["category"]
+                    changed = True
+                if changed:
+                    await db.commit()
         except LlmError as e:
             logger.info("Hintergrund-Vision fehlgeschlagen (%s): %s", item_id, e)
         except Exception as e:  # noqa: BLE001
@@ -87,6 +95,7 @@ def _item_out(item: Item) -> ItemOut:
         id=item.id,
         area_id=item.area_id,
         name=item.name,
+        category=item.category,
         description=item.description,
         price_new=float(item.price_new) if item.price_new is not None else None,
         price_source=item.price_source.value if item.price_source else None,
@@ -128,6 +137,7 @@ async def list_items(
     area_id: uuid.UUID | None = Query(default=None),
     uncatalogued: bool = Query(default=False),
     no_price: bool = Query(default=False),
+    category: str | None = Query(default=None),
 ):
     """Innerhalb des aktiven Hauses. area_id weglassen = ALLE Bereiche."""
     stmt = select(Item).where(Item.house_id == house.id).options(selectinload(Item.photos))
@@ -137,6 +147,8 @@ async def list_items(
         stmt = stmt.where(Item.is_catalogued.is_(False))
     if no_price:
         stmt = stmt.where(Item.price_new.is_(None))
+    if category:
+        stmt = stmt.where(Item.category == category)
     stmt = stmt.order_by(Item.created_at.desc())
     rows = await db.scalars(stmt)
     return [_item_out(i) for i in rows]
@@ -207,6 +219,7 @@ async def create_item(
         house_id=house.id,
         area_id=body.area_id,
         name=(body.name or None),
+        category=normalize_category(body.category),
         description=body.description,
         price_new=body.price_new,
         price_source=PriceSource.MANUAL if body.price_new is not None else None,
@@ -234,6 +247,8 @@ async def update_item(
         item.area_id = data["area_id"]
     if "name" in data:
         item.name = (data["name"] or None)
+    if "category" in data:
+        item.category = normalize_category(data["category"])
     if "description" in data:
         item.description = data["description"]
     if "price_new" in data:
@@ -282,7 +297,10 @@ async def add_photo(
     data = await file.read()
     if not data:
         raise HTTPException(400, "Leere Datei")
-    rel, _thumb = save_photo(settings.uploads_dir, item.id, data)
+    try:
+        rel, _thumb = save_photo(settings.uploads_dir, item.id, data)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(400, "Bild konnte nicht verarbeitet werden")
     is_first = len(item.photos) == 0
     db.add(ItemPhoto(item_id=item.id, file_path=rel, is_primary=is_first))
     await db.flush()
@@ -310,7 +328,10 @@ async def capture(
     db.add(item)
     await db.flush()
 
-    rel, _thumb = save_photo(settings.uploads_dir, item.id, data)
+    try:
+        rel, _thumb = save_photo(settings.uploads_dir, item.id, data)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(400, "Bild konnte nicht verarbeitet werden")
     db.add(ItemPhoto(item_id=item.id, file_path=rel, is_primary=True))
     # Sofort committen, damit der Hintergrund-Task das Objekt sicher findet.
     await db.commit()
@@ -361,5 +382,7 @@ async def recognize_item(
     item.name = result["name"]
     if result.get("description"):
         item.description = result["description"]
+    if result.get("category"):
+        item.category = result["category"]
     await db.flush()
     return _item_out(item)

@@ -1,3 +1,4 @@
+import { CATEGORIES } from '../lib/categories'
 import { type Area } from '../services/inventory'
 import { Select } from './ui/select'
 
@@ -5,6 +6,7 @@ export interface Filters {
   area_id: string | null
   uncatalogued: boolean
   no_price: boolean
+  category: string | null
 }
 
 export function FilterBar({
@@ -27,6 +29,19 @@ export function FilterBar({
         {areas.map((a) => (
           <option key={a.id} value={a.id}>
             {a.name}
+          </option>
+        ))}
+      </Select>
+
+      <Select
+        className="w-auto min-w-40"
+        value={filters.category ?? ''}
+        onChange={(e) => onChange({ ...filters, category: e.target.value || null })}
+      >
+        <option value="">Alle Kategorien</option>
+        {CATEGORIES.map((c) => (
+          <option key={c} value={c}>
+            {c}
           </option>
         ))}
       </Select>

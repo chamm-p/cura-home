@@ -6,6 +6,7 @@ import logging
 
 from json_repair import repair_json
 
+from app.constants import CATEGORIES, normalize_category
 from app.models.llm_backend import LlmBackend
 from app.services.images import normalize_for_vision
 from app.services.llm import LlmError, chat_completion, first_message_content, image_part
@@ -14,15 +15,20 @@ logger = logging.getLogger(__name__)
 
 _SYSTEM = (
     "Du bist ein Assistent zur Inventarerfassung im Haushalt. Du erkennst auf "
-    "Fotos das Hauptobjekt und benennst es knapp und alltagstauglich auf Deutsch."
+    "Fotos das Hauptobjekt, benennst es knapp und alltagstauglich auf Deutsch "
+    "und ordnest es einer groben Kategorie zu."
 )
 
+_CATS = ", ".join(CATEGORIES)
 _USER = (
     "Welches Inventarobjekt ist auf dem Foto das Hauptmotiv? Antworte AUSSCHLIESSLICH "
     "als JSON in diesem Format:\n"
-    '{"name": "<kurzer Name, max. 4 Wörter>", "description": "<optional, 1 kurzer Satz>"}\n'
-    "Beispiele für name: \"Mikrowelle\", \"Esstischstuhl\", \"Standventilator\", "
-    "\"Bohrmaschine\". Keine Erklärungen außerhalb des JSON."
+    '{"name": "<kurzer Name, max. 4 Wörter>", "category": "<eine Kategorie>", '
+    '"description": "<optional, 1 kurzer Satz>"}\n'
+    f"category MUSS genau eine aus dieser Liste sein: {_CATS}. "
+    "Beispiele: \"Mikrowelle\" → Kochen, \"Esstischstuhl\" → Möbel, "
+    "\"Bohrmaschine\" → Hobby, \"Laptop\" → Technik. "
+    "Keine Erklärungen außerhalb des JSON."
 )
 
 
@@ -59,5 +65,6 @@ async def recognize(backend: LlmBackend, image_bytes: bytes) -> dict:
         name = content.splitlines()[0].strip()[:120]
     return {
         "name": name[:300],
+        "category": normalize_category(parsed.get("category")),
         "description": (parsed.get("description") or "").strip()[:1000] or None,
     }

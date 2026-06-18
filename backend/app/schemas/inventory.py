@@ -38,6 +38,7 @@ class PhotoOut(BaseModel):
 class ItemIn(BaseModel):
     area_id: uuid.UUID | None = None
     name: str | None = Field(default=None, max_length=300)
+    category: str | None = Field(default=None, max_length=40)
     description: str | None = None
     price_new: float | None = None
     is_catalogued: bool | None = None
@@ -53,6 +54,7 @@ class ItemOut(BaseModel):
     id: uuid.UUID
     area_id: uuid.UUID | None
     name: str | None
+    category: str | None
     description: str | None
     price_new: float | None
     price_source: str | None

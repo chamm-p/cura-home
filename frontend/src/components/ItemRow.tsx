@@ -45,6 +45,11 @@ export function ItemRow({
           <span className="truncate font-medium">
             {item.name || <span className="italic text-slate-400">Unbenannt</span>}
           </span>
+          {item.category && (
+            <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              {item.category}
+            </span>
+          )}
           {!item.is_catalogued && (
             <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-amber-500" />
           )}
