@@ -12,7 +12,6 @@ import {
   listItems,
   recognizeItem,
   updateItem,
-  visionStatus,
 } from '../services/inventory'
 import { type PriceEstimate, estimatePrice, pricingStatus } from '../services/pricing'
 import { Button } from './ui/button'
@@ -41,11 +40,9 @@ export function ItemDialog({
   const [areaId, setAreaId] = useState<string | null>(null)
   const [forSale, setForSale] = useState(false)
   const [forDisposal, setForDisposal] = useState(false)
-  const [catBusy, setCatBusy] = useState(false)
   const [catHint, setCatHint] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [priceAvailable, setPriceAvailable] = useState(false)
-  const [visionAvailable, setVisionAvailable] = useState(false)
   const [recognizing, setRecognizing] = useState(false)
   const [estimating, setEstimating] = useState(false)
   const [suggestion, setSuggestion] = useState<PriceEstimate | null>(null)
@@ -69,9 +66,6 @@ export function ItemDialog({
     pricingStatus()
       .then((s) => setPriceAvailable(s.available))
       .catch(() => setPriceAvailable(false))
-    visionStatus()
-      .then((s) => setVisionAvailable(s.available))
-      .catch(() => setVisionAvailable(false))
   }, [itemId])
 
   // Auto-Vorschlag beim Verlassen des Namensfelds (nur wenn noch keine Kategorie).
@@ -85,37 +79,31 @@ export function ItemDialog({
     }
   }
 
-  // Expliziter Button — schlägt vor (überschreibt auch eine bestehende Wahl).
-  async function suggestCategory() {
-    if (!name.trim()) {
-      setCatHint('Bitte zuerst einen Namen vergeben.')
-      return
-    }
-    setCatHint(null)
-    setCatBusy(true)
-    try {
-      const cat = await categorizeName(name.trim())
-      if (cat) setCategory(cat)
-      else setCatHint('Keine Kategorie ermittelt — ist ein LLM-Backend konfiguriert?')
-    } catch {
-      setCatHint('Vorschlag fehlgeschlagen.')
-    } finally {
-      setCatBusy(false)
-    }
-  }
-
+  // „Neu erkennen": mit Foto → Vision (Name/Kategorie/Beschreibung),
+  // ohne Foto → reine LLM-Kategorisierung anhand des Namens.
   async function reRecognize() {
     if (!item) return
+    setCatHint(null)
     setRecognizing(true)
     try {
-      const updated = await recognizeItem(item.id)
-      setItem(updated)
-      setName(updated.name ?? '')
-      setCategory(updated.category ?? '')
-      if (updated.description) setDescription(updated.description)
-      onChanged()
+      if (item.photos.length > 0) {
+        const updated = await recognizeItem(item.id)
+        setItem(updated)
+        setName(updated.name ?? '')
+        setCategory(updated.category ?? '')
+        if (updated.description) setDescription(updated.description)
+        onChanged()
+      } else {
+        if (!name.trim()) {
+          setCatHint('Ohne Foto bitte zuerst einen Namen vergeben.')
+          return
+        }
+        const cat = await categorizeName(name.trim())
+        if (cat) setCategory(cat)
+        else setCatHint('Keine Kategorie ermittelt — ist ein LLM-Backend konfiguriert?')
+      }
     } catch (e: any) {
-      alert(e?.response?.data?.detail || 'Erkennung fehlgeschlagen.')
+      setCatHint(e?.response?.data?.detail || 'Erkennung fehlgeschlagen.')
     } finally {
       setRecognizing(false)
     }
@@ -246,23 +234,26 @@ export function ItemDialog({
             <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
               <Camera className="h-4 w-4" /> Foto hinzufügen
             </Button>
-            {visionAvailable && item.photos.length > 0 && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={reRecognize}
-                disabled={recognizing}
-                title="Objekt anhand des Fotos erneut per Vision erkennen"
-              >
-                {recognizing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ScanSearch className="h-4 w-4" />
-                )}
-                Mit Vision erkennen
-              </Button>
-            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={reRecognize}
+              disabled={recognizing}
+              title={
+                item.photos.length > 0
+                  ? 'Anhand des Fotos per Vision neu erkennen'
+                  : 'Kategorie per LLM anhand des Namens erkennen'
+              }
+            >
+              {recognizing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ScanSearch className="h-4 w-4" />
+              )}
+              Neu erkennen
+            </Button>
           </div>
+          {catHint && <p className="text-xs text-amber-600">{catHint}</p>}
 
           <Field label="Name">
             <Input
@@ -273,30 +264,14 @@ export function ItemDialog({
             />
           </Field>
           <Field label="Kategorie">
-            <div className="flex gap-2">
-              <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-                <option value="">— keine —</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </Select>
-              <Button
-                variant="secondary"
-                onClick={suggestCategory}
-                disabled={catBusy || !name.trim()}
-                title="Kategorie per KI vorschlagen"
-              >
-                {catBusy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4 text-indigo-500" />
-                )}
-                Vorschlagen
-              </Button>
-            </div>
-            {catHint && <p className="mt-1 text-xs text-amber-600">{catHint}</p>}
+            <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="">— keine —</option>
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Bereich">
