@@ -12,17 +12,10 @@ import {
 } from '../services/settings'
 import { BackendForm } from './BackendForm'
 import { Button } from './ui/button'
-import { Dialog } from './ui/dialog'
 import { Input } from './ui/input'
 import { Select } from './ui/select'
 
-export function SettingsDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean
-  onOpenChange: (v: boolean) => void
-}) {
+export function BackendsPanel() {
   const [backends, setBackends] = useState<LlmBackend[]>([])
   const [visionId, setVisionId] = useState<string>('')
   const [pricingId, setPricingId] = useState<string>('')
@@ -54,12 +47,10 @@ export function SettingsDialog({
   }
 
   useEffect(() => {
-    if (open) {
-      setAdding(false)
-      setEditingId(null)
-      reload().catch(() => {})
-    }
-  }, [open])
+    setAdding(false)
+    setEditingId(null)
+    reload().catch(() => {})
+  }, [])
 
   async function setVision(id: string) {
     setVisionId(id)
@@ -111,14 +102,8 @@ export function SettingsDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Einstellungen — LLM-Backends"
-      className="max-w-2xl"
-    >
-      <div className="space-y-5">
-        {/* Vision-Backend-Auswahl */}
+    <div className="space-y-5">
+      {/* Vision-Backend-Auswahl */}
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
             Backend für Objekterkennung (Vision)
@@ -298,8 +283,7 @@ export function SettingsDialog({
             <Plus className="h-4 w-4" /> Backend hinzufügen
           </Button>
         )}
-      </div>
-    </Dialog>
+    </div>
   )
 }
 

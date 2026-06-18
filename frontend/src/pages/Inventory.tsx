@@ -1,24 +1,12 @@
-import {
-  Boxes,
-  Camera,
-  FolderTree,
-  Home,
-  LayoutGrid,
-  List,
-  LogOut,
-  Printer,
-  Settings,
-} from 'lucide-react'
+import { Boxes, Camera, LayoutGrid, List, LogOut, Printer, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AreasDialog } from '../components/AreasDialog'
 import { CaptureDialog } from '../components/CaptureDialog'
+import { ExportDialog } from '../components/ExportDialog'
 import { FilterBar, type Filters } from '../components/FilterBar'
-import { HousesDialog } from '../components/HousesDialog'
 import { ItemCard } from '../components/ItemCard'
 import { ItemDialog } from '../components/ItemDialog'
-import { ExportDialog } from '../components/ExportDialog'
 import { ItemRow } from '../components/ItemRow'
-import { SettingsDialog } from '../components/SettingsDialog'
+import { SettingsHub } from '../components/SettingsHub'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { Button } from '../components/ui/button'
 import { Select } from '../components/ui/select'
@@ -26,7 +14,7 @@ import { Spinner } from '../components/ui/spinner'
 import { money } from '../lib/format'
 import { type House, listHouses } from '../services/houses'
 import { type Area, type Item, listAreas, listItems, visionStatus } from '../services/inventory'
-import { displayName, isAdmin, useAuthStore } from '../store/auth'
+import { displayName, useAuthStore } from '../store/auth'
 import { useHouseStore } from '../store/house'
 import { useUiStore } from '../store/ui'
 
@@ -54,8 +42,6 @@ export default function Inventory() {
   const [visionAvailable, setVisionAvailable] = useState(false)
 
   const [captureOpen, setCaptureOpen] = useState(false)
-  const [areasOpen, setAreasOpen] = useState(false)
-  const [housesOpen, setHousesOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
@@ -153,12 +139,6 @@ export default function Inventory() {
             </Select>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={() => setHousesOpen(true)} title="Häuser & Teilen">
-              <Home className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setAreasOpen(true)} title="Bereiche">
-              <FolderTree className="h-4 w-4" />
-            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -167,11 +147,14 @@ export default function Inventory() {
             >
               <Printer className="h-4 w-4" />
             </Button>
-            {isAdmin(user) && (
-              <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)} title="Einstellungen">
-                <Settings className="h-4 w-4" />
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSettingsOpen(true)}
+              title="Einstellungen (Häuser, Bereiche, KI)"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
             <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={logout} title="Abmelden">
               <LogOut className="h-4 w-4" />
@@ -290,26 +273,20 @@ export default function Inventory() {
         defaultAreaId={filters.area_id}
         onChanged={refreshAll}
       />
-      <HousesDialog
-        open={housesOpen}
-        onOpenChange={setHousesOpen}
+      <ExportDialog open={exportOpen} onOpenChange={setExportOpen} filters={filters} />
+      <SettingsHub
+        open={settingsOpen}
+        onOpenChange={(v) => {
+          setSettingsOpen(v)
+          if (!v)
+            visionStatus()
+              .then((s) => setVisionAvailable(s.available))
+              .catch(() => {})
+        }}
         houses={houses}
+        areas={areas}
         onChanged={refreshAll}
       />
-      <AreasDialog open={areasOpen} onOpenChange={setAreasOpen} areas={areas} onChanged={refreshAll} />
-      <ExportDialog open={exportOpen} onOpenChange={setExportOpen} filters={filters} />
-      {isAdmin(user) && (
-        <SettingsDialog
-          open={settingsOpen}
-          onOpenChange={(v) => {
-            setSettingsOpen(v)
-            if (!v)
-              visionStatus()
-                .then((s) => setVisionAvailable(s.available))
-                .catch(() => {})
-          }}
-        />
-      )}
       <ItemDialog
         itemId={detailId}
         areas={areas}
