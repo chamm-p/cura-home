@@ -45,6 +45,25 @@ export function ItemCard({
             {item.category}
           </span>
         )}
+        {(item.needs_verification || item.for_sale || item.for_disposal) && (
+          <div className="flex flex-wrap gap-1">
+            {item.needs_verification && (
+              <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                zu prüfen
+              </span>
+            )}
+            {item.for_sale && (
+              <span className="rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                Verkaufen
+              </span>
+            )}
+            {item.for_disposal && (
+              <span className="rounded-md bg-red-500/15 px-1.5 py-0.5 text-[11px] font-medium text-red-600 dark:text-red-400">
+                Entsorgen
+              </span>
+            )}
+          </div>
+        )}
         <div className="mt-auto">
           <span
             className={

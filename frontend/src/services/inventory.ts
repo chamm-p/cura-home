@@ -23,6 +23,9 @@ export interface Item {
   price_source: string | null
   price_determined_at: string | null
   is_catalogued: boolean
+  for_sale: boolean
+  for_disposal: boolean
+  needs_verification: boolean
   custom_values: Record<string, unknown>
   created_at: string
   updated_at: string
@@ -63,6 +66,9 @@ export interface ItemFilters {
   uncatalogued?: boolean
   no_price?: boolean
   category?: string | null
+  needs_verification?: boolean
+  for_sale?: boolean
+  for_disposal?: boolean
 }
 
 export function listItems(filters: ItemFilters = {}) {
@@ -71,6 +77,9 @@ export function listItems(filters: ItemFilters = {}) {
   if (filters.uncatalogued) params.uncatalogued = 'true'
   if (filters.no_price) params.no_price = 'true'
   if (filters.category) params.category = filters.category
+  if (filters.needs_verification) params.needs_verification = 'true'
+  if (filters.for_sale) params.for_sale = 'true'
+  if (filters.for_disposal) params.for_disposal = 'true'
   return api.get<Item[]>('/api/items', { params }).then((r) => r.data)
 }
 
@@ -84,6 +93,9 @@ export interface ItemPayload {
   description?: string | null
   price_new?: number | null
   is_catalogued?: boolean
+  for_sale?: boolean
+  for_disposal?: boolean
+  needs_verification?: boolean
   custom_values?: Record<string, unknown>
 }
 

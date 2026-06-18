@@ -35,6 +35,8 @@ export function ItemDialog({
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
   const [areaId, setAreaId] = useState<string | null>(null)
+  const [forSale, setForSale] = useState(false)
+  const [forDisposal, setForDisposal] = useState(false)
   const [busy, setBusy] = useState(false)
   const [priceAvailable, setPriceAvailable] = useState(false)
   const [visionAvailable, setVisionAvailable] = useState(false)
@@ -55,6 +57,8 @@ export function ItemDialog({
       setDescription(it.description ?? '')
       setPrice(it.price_new != null ? String(it.price_new) : '')
       setAreaId(it.area_id)
+      setForSale(it.for_sale)
+      setForDisposal(it.for_disposal)
     })
     pricingStatus()
       .then((s) => setPriceAvailable(s.available))
@@ -111,6 +115,8 @@ export function ItemDialog({
         price_new: Number.isFinite(p as number) ? p : null,
         area_id: areaId,
         is_catalogued: !!name.trim(),
+        for_sale: forSale,
+        for_disposal: forDisposal,
       })
       onChanged()
       onClose()
@@ -285,6 +291,25 @@ export function ItemDialog({
               placeholder="optional"
             />
           </Field>
+
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={forSale}
+                onChange={(e) => setForSale(e.target.checked)}
+              />
+              Zu verkaufen
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={forDisposal}
+                onChange={(e) => setForDisposal(e.target.checked)}
+              />
+              Zu entsorgen
+            </label>
+          </div>
 
           <div className="flex items-center justify-between pt-2">
             <Button variant="danger" size="sm" onClick={remove} disabled={busy}>

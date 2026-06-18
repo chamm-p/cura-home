@@ -64,6 +64,14 @@ class Item(Base):
     # Explizites Katalogisiert-Flag: gesetzt, sobald der Nutzer das Objekt
     # benannt/bestätigt hat. Frisch fotografierte Objekte sind unkatalogisiert.
     is_catalogued: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Zusatz-Flags pro Objekt.
+    for_sale: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    for_disposal: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Vom System gesetzt nach automatischer Erkennung/Pricing — soll vom Nutzer
+    # geprüft werden. Wird beim Speichern im Dialog gelöscht (= verifiziert).
+    needs_verification: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", index=True
+    )
     # Custom-Field-Werte als JSONB (field-key → value). Checkbox: bool, Text: str.
     custom_values: Mapped[dict] = mapped_column(JSONB, default=dict)
 

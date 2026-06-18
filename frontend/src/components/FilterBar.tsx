@@ -7,6 +7,9 @@ export interface Filters {
   uncatalogued: boolean
   no_price: boolean
   category: string | null
+  needs_verification: boolean
+  for_sale: boolean
+  for_disposal: boolean
 }
 
 export function FilterBar({
@@ -57,6 +60,26 @@ export function FilterBar({
         onClick={() => onChange({ ...filters, no_price: !filters.no_price })}
       >
         Ohne Preis
+      </Toggle>
+      <Toggle
+        active={filters.needs_verification}
+        onClick={() =>
+          onChange({ ...filters, needs_verification: !filters.needs_verification })
+        }
+      >
+        Zu verifizieren
+      </Toggle>
+      <Toggle
+        active={filters.for_sale}
+        onClick={() => onChange({ ...filters, for_sale: !filters.for_sale })}
+      >
+        Verkaufen
+      </Toggle>
+      <Toggle
+        active={filters.for_disposal}
+        onClick={() => onChange({ ...filters, for_disposal: !filters.for_disposal })}
+      >
+        Entsorgen
       </Toggle>
     </div>
   )

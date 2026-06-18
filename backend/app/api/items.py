@@ -101,6 +101,9 @@ def _item_out(item: Item) -> ItemOut:
         price_source=item.price_source.value if item.price_source else None,
         price_determined_at=item.price_determined_at,
         is_catalogued=item.is_catalogued,
+        for_sale=item.for_sale,
+        for_disposal=item.for_disposal,
+        needs_verification=item.needs_verification,
         custom_values=item.custom_values or {},
         created_at=item.created_at,
         updated_at=item.updated_at,
@@ -138,6 +141,9 @@ async def list_items(
     uncatalogued: bool = Query(default=False),
     no_price: bool = Query(default=False),
     category: str | None = Query(default=None),
+    needs_verification: bool = Query(default=False),
+    for_sale: bool = Query(default=False),
+    for_disposal: bool = Query(default=False),
 ):
     """Innerhalb des aktiven Hauses. area_id weglassen = ALLE Bereiche."""
     stmt = select(Item).where(Item.house_id == house.id).options(selectinload(Item.photos))
@@ -149,6 +155,12 @@ async def list_items(
         stmt = stmt.where(Item.price_new.is_(None))
     if category:
         stmt = stmt.where(Item.category == category)
+    if needs_verification:
+        stmt = stmt.where(Item.needs_verification.is_(True))
+    if for_sale:
+        stmt = stmt.where(Item.for_sale.is_(True))
+    if for_disposal:
+        stmt = stmt.where(Item.for_disposal.is_(True))
     stmt = stmt.order_by(Item.created_at.desc())
     rows = await db.scalars(stmt)
     return [_item_out(i) for i in rows]
@@ -225,6 +237,9 @@ async def create_item(
         price_source=PriceSource.MANUAL if body.price_new is not None else None,
         price_determined_at=datetime.now(timezone.utc) if body.price_new is not None else None,
         is_catalogued=bool(body.is_catalogued) if body.is_catalogued is not None else bool(body.name),
+        for_sale=bool(body.for_sale),
+        for_disposal=bool(body.for_disposal),
+        needs_verification=bool(body.needs_verification),
         custom_values=body.custom_values or {},
     )
     db.add(item)
@@ -266,6 +281,15 @@ async def update_item(
         item.custom_values = data["custom_values"]
     if "is_catalogued" in data and data["is_catalogued"] is not None:
         item.is_catalogued = data["is_catalogued"]
+    if "for_sale" in data and data["for_sale"] is not None:
+        item.for_sale = data["for_sale"]
+    if "for_disposal" in data and data["for_disposal"] is not None:
+        item.for_disposal = data["for_disposal"]
+    # Speichern = verifiziert: Flag löschen, sofern nicht explizit gesetzt.
+    if "needs_verification" in data and data["needs_verification"] is not None:
+        item.needs_verification = data["needs_verification"]
+    else:
+        item.needs_verification = False
     await db.flush()
     return _item_out(item)
 

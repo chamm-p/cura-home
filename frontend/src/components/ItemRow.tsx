@@ -50,6 +50,21 @@ export function ItemRow({
               {item.category}
             </span>
           )}
+          {item.needs_verification && (
+            <span className="shrink-0 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+              zu prüfen
+            </span>
+          )}
+          {item.for_sale && (
+            <span className="shrink-0 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+              Verkaufen
+            </span>
+          )}
+          {item.for_disposal && (
+            <span className="shrink-0 rounded-md bg-red-500/15 px-1.5 py-0.5 text-[11px] font-medium text-red-600 dark:text-red-400">
+              Entsorgen
+            </span>
+          )}
           {!item.is_catalogued && (
             <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-amber-500" />
           )}

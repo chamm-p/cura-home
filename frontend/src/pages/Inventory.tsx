@@ -46,6 +46,9 @@ export default function Inventory() {
     uncatalogued: false,
     no_price: false,
     category: null,
+    needs_verification: false,
+    for_sale: false,
+    for_disposal: false,
   })
   const [loading, setLoading] = useState(true)
   const [visionAvailable, setVisionAvailable] = useState(false)

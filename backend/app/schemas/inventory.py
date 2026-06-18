@@ -42,6 +42,9 @@ class ItemIn(BaseModel):
     description: str | None = None
     price_new: float | None = None
     is_catalogued: bool | None = None
+    for_sale: bool | None = None
+    for_disposal: bool | None = None
+    needs_verification: bool | None = None
     custom_values: dict | None = None
 
 
@@ -60,6 +63,9 @@ class ItemOut(BaseModel):
     price_source: str | None
     price_determined_at: datetime | None = None
     is_catalogued: bool
+    for_sale: bool
+    for_disposal: bool
+    needs_verification: bool
     custom_values: dict
     created_at: datetime
     updated_at: datetime
