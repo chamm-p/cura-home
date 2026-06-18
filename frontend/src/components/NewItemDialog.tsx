@@ -1,7 +1,7 @@
 import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { CATEGORIES } from '../lib/categories'
-import { type Area, createItem } from '../services/inventory'
+import { type Area, categorizeName, createItem } from '../services/inventory'
 import { Button } from './ui/button'
 import { Dialog } from './ui/dialog'
 import { Input } from './ui/input'
@@ -31,6 +31,21 @@ export function NewItemDialog({
   const [forDisposal, setForDisposal] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [catBusy, setCatBusy] = useState(false)
+
+  // Kategorie aus dem Namen vorschlagen, sofern noch keine gewählt ist.
+  async function autoCategorize() {
+    if (!name.trim() || category) return
+    setCatBusy(true)
+    try {
+      const cat = await categorizeName(name.trim())
+      if (cat) setCategory((cur) => cur || cat)
+    } catch {
+      /* still ignorieren */
+    } finally {
+      setCatBusy(false)
+    }
+  }
 
   // Beim Öffnen zurücksetzen.
   useEffect(() => {
@@ -79,9 +94,14 @@ export function NewItemDialog({
     <Dialog open={open} onOpenChange={onOpenChange} title="Neues Objekt (ohne Foto)">
       <div className="space-y-3">
         <Field label="Name">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Objektname" />
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={autoCategorize}
+            placeholder="Objektname"
+          />
         </Field>
-        <Field label="Kategorie">
+        <Field label={catBusy ? 'Kategorie (wird vorgeschlagen…)' : 'Kategorie'}>
           <Select value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="">— keine —</option>
             {CATEGORIES.map((c) => (

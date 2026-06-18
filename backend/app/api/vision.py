@@ -1,6 +1,7 @@
 """Vision API — Objekterkennung auf einem Foto (ohne Speichern)."""
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
@@ -10,6 +11,32 @@ from app.services import settings_store, vision
 from app.services.llm import LlmError
 
 router = APIRouter(prefix="/api/vision", tags=["vision"])
+
+
+class CategorizeIn(BaseModel):
+    name: str
+
+
+@router.post("/categorize")
+async def categorize(
+    body: CategorizeIn,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Schlägt anhand des Namens (ohne Foto) eine Kategorie vor. Liefert
+    {category: null}, wenn kein LLM-Backend vorhanden oder nichts erkannt."""
+    if not body.name.strip():
+        return {"category": None}
+    backend = await settings_store.pick_backend(
+        db, config_key="vision_config", require_vision=False
+    )
+    if backend is None:
+        return {"category": None}
+    try:
+        cat = await vision.categorize(backend, body.name.strip())
+    except LlmError:
+        cat = None
+    return {"category": cat}
 
 
 @router.get("/status")

@@ -130,3 +130,9 @@ export const visionStatus = () =>
   api
     .get<{ available: boolean; backend: string | null }>('/api/vision/status')
     .then((r) => r.data)
+
+// Kategorie aus dem Namen vorschlagen (Text, ohne Foto). null = nichts/kein Backend.
+export const categorizeName = (name: string) =>
+  api
+    .post<{ category: string | null }>('/api/vision/categorize', { name })
+    .then((r) => r.data.category)

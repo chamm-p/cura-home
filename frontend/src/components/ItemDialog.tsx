@@ -6,6 +6,7 @@ import {
   type Area,
   type Item,
   addPhoto,
+  categorizeName,
   deleteItem,
   getItem,
   listItems,
@@ -70,6 +71,16 @@ export function ItemDialog({
       .then((s) => setVisionAvailable(s.available))
       .catch(() => setVisionAvailable(false))
   }, [itemId])
+
+  async function autoCategorize() {
+    if (!name.trim() || category) return
+    try {
+      const cat = await categorizeName(name.trim())
+      if (cat) setCategory((cur) => cur || cat)
+    } catch {
+      /* ignorieren */
+    }
+  }
 
   async function reRecognize() {
     if (!item) return
@@ -232,7 +243,12 @@ export function ItemDialog({
           </div>
 
           <Field label="Name">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Objektname" />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={autoCategorize}
+              placeholder="Objektname"
+            />
           </Field>
           <Field label="Kategorie">
             <Select value={category} onChange={(e) => setCategory(e.target.value)}>

@@ -6,7 +6,7 @@ import logging
 
 from json_repair import repair_json
 
-from app.constants import CATEGORIES, normalize_category
+from app.constants import CATEGORIES, find_category, normalize_category
 from app.models.llm_backend import LlmBackend
 from app.services.images import normalize_for_vision
 from app.services.llm import LlmError, chat_completion, first_message_content, image_part
@@ -68,3 +68,19 @@ async def recognize(backend: LlmBackend, image_bytes: bytes) -> dict:
         "category": normalize_category(parsed.get("category")),
         "description": (parsed.get("description") or "").strip()[:1000] or None,
     }
+
+
+async def categorize(backend: LlmBackend, name: str) -> str | None:
+    """Ordnet einen Objektnamen (Text, ohne Foto) einer groben Kategorie zu."""
+    system = "Du ordnest Haushaltsgegenstände genau einer groben Kategorie zu."
+    user = (
+        f'Kategorisiere den Gegenstand "{name}". Wähle GENAU eine Kategorie aus: '
+        f"{_CATS}. Antworte ausschließlich mit dem Kategorienamen."
+    )
+    data = await chat_completion(
+        backend,
+        [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        max_tokens=20,
+        temperature=0.0,
+    )
+    return find_category(first_message_content(data))
