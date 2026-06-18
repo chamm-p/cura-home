@@ -1,4 +1,4 @@
-import { Boxes, Camera, LayoutGrid, List, LogOut, Printer, Settings } from 'lucide-react'
+import { Boxes, Camera, LayoutGrid, List, LogOut, Plus, Printer, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CaptureDialog } from '../components/CaptureDialog'
 import { ExportDialog } from '../components/ExportDialog'
@@ -6,6 +6,7 @@ import { FilterBar, type Filters } from '../components/FilterBar'
 import { ItemCard } from '../components/ItemCard'
 import { ItemDialog } from '../components/ItemDialog'
 import { ItemRow } from '../components/ItemRow'
+import { NewItemDialog } from '../components/NewItemDialog'
 import { SettingsHub } from '../components/SettingsHub'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { Button } from '../components/ui/button'
@@ -42,6 +43,7 @@ export default function Inventory() {
   const [visionAvailable, setVisionAvailable] = useState(false)
 
   const [captureOpen, setCaptureOpen] = useState(false)
+  const [newOpen, setNewOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
@@ -259,9 +261,19 @@ export default function Inventory() {
             <span className="text-base font-bold">{money(total, currency)}</span>{' '}
             <span className="text-slate-400">· {items.length} Objekte</span>
           </div>
-          <Button size="lg" onClick={() => setCaptureOpen(true)}>
-            <Camera className="h-5 w-5" /> Erfassen
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => setNewOpen(true)}
+              title="Objekt ohne Foto manuell anlegen"
+            >
+              <Plus className="h-5 w-5" />
+            </Button>
+            <Button size="lg" onClick={() => setCaptureOpen(true)}>
+              <Camera className="h-5 w-5" /> Erfassen
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -272,6 +284,14 @@ export default function Inventory() {
         visionAvailable={visionAvailable}
         defaultAreaId={filters.area_id}
         onChanged={refreshAll}
+      />
+      <NewItemDialog
+        open={newOpen}
+        onOpenChange={setNewOpen}
+        areas={areas}
+        defaultAreaId={filters.area_id}
+        onChanged={refreshAll}
+        onCreated={(id) => setDetailId(id)}
       />
       <ExportDialog open={exportOpen} onOpenChange={setExportOpen} filters={filters} />
       <SettingsHub
