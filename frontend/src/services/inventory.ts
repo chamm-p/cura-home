@@ -115,6 +115,15 @@ export const processItems = (itemIds: string[]) =>
     .post<{ scheduled: number }>('/api/items/process', { item_ids: itemIds })
     .then((r) => r.data)
 
+// ─── Bulk-Aktionen ───
+export const bulkDeleteItems = (itemIds: string[]) =>
+  api.post<{ affected: number }>('/api/items/bulk/delete', { item_ids: itemIds }).then((r) => r.data)
+
+export const bulkSetArea = (itemIds: string[], areaId: string | null) =>
+  api
+    .post<{ affected: number }>('/api/items/bulk/area', { item_ids: itemIds, area_id: areaId })
+    .then((r) => r.data)
+
 export function addPhoto(itemId: string, file: File) {
   const form = new FormData()
   form.append('file', file)

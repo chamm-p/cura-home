@@ -1,4 +1,4 @@
-import { ImageOff, TriangleAlert } from 'lucide-react'
+import { Check, ImageOff, TriangleAlert } from 'lucide-react'
 import { fmtDate, money } from '../lib/format'
 import { type Item } from '../services/inventory'
 
@@ -6,18 +6,39 @@ export function ItemCard({
   item,
   currency,
   onClick,
+  selectable = false,
+  selected = false,
 }: {
   item: Item
   currency: string
   onClick: () => void
+  selectable?: boolean
+  selected?: boolean
 }) {
   const primary = item.photos.find((p) => p.is_primary) ?? item.photos[0]
   return (
     <button
       onClick={onClick}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+      className={
+        'group flex flex-col overflow-hidden rounded-2xl border bg-white text-left transition-shadow hover:shadow-md dark:bg-slate-900 ' +
+        (selected
+          ? 'border-indigo-500 ring-2 ring-indigo-500'
+          : 'border-slate-200 dark:border-slate-800')
+      }
     >
       <div className="relative aspect-square w-full bg-slate-100 dark:bg-slate-800">
+        {selectable && (
+          <span
+            className={
+              'absolute left-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 ' +
+              (selected
+                ? 'border-indigo-500 bg-indigo-500 text-white'
+                : 'border-white/80 bg-black/30 text-transparent')
+            }
+          >
+            <Check className="h-4 w-4" />
+          </span>
+        )}
         {primary ? (
           <img
             src={primary.thumb_url}

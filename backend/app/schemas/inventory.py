@@ -80,6 +80,19 @@ class ProcessResult(BaseModel):
     scheduled: int
 
 
+class BulkDeleteIn(BaseModel):
+    item_ids: list[uuid.UUID]
+
+
+class BulkAreaIn(BaseModel):
+    item_ids: list[uuid.UUID]
+    area_id: uuid.UUID | None = None
+
+
+class BulkResult(BaseModel):
+    affected: int
+
+
 class AreaSummary(BaseModel):
     area_id: uuid.UUID | None
     area_name: str

@@ -1,4 +1,4 @@
-import { ImageOff, TriangleAlert } from 'lucide-react'
+import { Check, ImageOff, TriangleAlert } from 'lucide-react'
 import { fmtDate, money } from '../lib/format'
 import { type Item } from '../services/inventory'
 
@@ -6,17 +6,38 @@ export function ItemRow({
   item,
   currency,
   onClick,
+  selectable = false,
+  selected = false,
 }: {
   item: Item
   currency: string
   onClick: () => void
+  selectable?: boolean
+  selected?: boolean
 }) {
   const primary = item.photos.find((p) => p.is_primary) ?? item.photos[0]
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
+      className={
+        'flex w-full items-center gap-3 rounded-xl border bg-white px-3 py-2 text-left transition-colors hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 ' +
+        (selected
+          ? 'border-indigo-500 ring-2 ring-indigo-500'
+          : 'border-slate-200 dark:border-slate-800')
+      }
     >
+      {selectable && (
+        <span
+          className={
+            'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ' +
+            (selected
+              ? 'border-indigo-500 bg-indigo-500 text-white'
+              : 'border-slate-300 text-transparent dark:border-slate-600')
+          }
+        >
+          <Check className="h-4 w-4" />
+        </span>
+      )}
       <div className="group relative shrink-0">
         {primary ? (
           <>

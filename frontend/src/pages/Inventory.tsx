@@ -1,4 +1,16 @@
-import { Boxes, Camera, LayoutGrid, List, LogOut, Plus, Printer, Settings } from 'lucide-react'
+import {
+  Boxes,
+  Camera,
+  CheckSquare,
+  LayoutGrid,
+  List,
+  LogOut,
+  Plus,
+  Printer,
+  Settings,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CaptureDialog } from '../components/CaptureDialog'
 import { ExportDialog } from '../components/ExportDialog'
@@ -14,7 +26,15 @@ import { Select } from '../components/ui/select'
 import { Spinner } from '../components/ui/spinner'
 import { money } from '../lib/format'
 import { type House, listHouses } from '../services/houses'
-import { type Area, type Item, listAreas, listItems, visionStatus } from '../services/inventory'
+import {
+  type Area,
+  type Item,
+  bulkDeleteItems,
+  bulkSetArea,
+  listAreas,
+  listItems,
+  visionStatus,
+} from '../services/inventory'
 import { displayName, useAuthStore } from '../store/auth'
 import { useHouseStore } from '../store/house'
 import { useUiStore } from '../store/ui'
@@ -47,6 +67,37 @@ export default function Inventory() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  }
+
+  function exitSelection() {
+    setSelectionMode(false)
+    setSelected(new Set())
+  }
+
+  async function bulkDelete() {
+    if (!selected.size) return
+    if (!confirm(`${selected.size} Objekt(e) endgültig löschen?`)) return
+    await bulkDeleteItems([...selected])
+    exitSelection()
+    refreshAll()
+  }
+
+  async function bulkMove(areaId: string | null) {
+    if (!selected.size) return
+    await bulkSetArea([...selected], areaId)
+    exitSelection()
+    refreshAll()
+  }
 
   // Häuser laden + aktives Haus bestimmen.
   const loadHouses = useCallback(async () => {
@@ -73,6 +124,8 @@ export default function Inventory() {
       .then((s) => setVisionAvailable(s.available))
       .catch(() => setVisionAvailable(false))
     setFilters((f) => ({ ...f, area_id: null, category: null }))
+    setSelectionMode(false)
+    setSelected(new Set())
   }, [currentHouseId, loadAreas])
 
   useEffect(() => {
@@ -165,7 +218,21 @@ export default function Inventory() {
         </div>
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 pb-3">
           <FilterBar areas={areas} filters={filters} onChange={setFilters} />
-          <div className="flex shrink-0 overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700">
+          <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={() => (selectionMode ? exitSelection() : setSelectionMode(true))}
+            title="Auswählen"
+            className={
+              'flex h-10 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium ' +
+              (selectionMode
+                ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
+                : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800')
+            }
+          >
+            <CheckSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">Auswählen</span>
+          </button>
+          <div className="flex overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700">
             <button
               onClick={() => setViewMode('tiles')}
               title="Kacheln"
@@ -190,6 +257,7 @@ export default function Inventory() {
             >
               <List className="h-4 w-4" />
             </button>
+          </div>
           </div>
         </div>
       </header>
@@ -232,7 +300,11 @@ export default function Inventory() {
                         key={it.id}
                         item={it}
                         currency={currency}
-                        onClick={() => setDetailId(it.id)}
+                        selectable={selectionMode}
+                        selected={selected.has(it.id)}
+                        onClick={() =>
+                          selectionMode ? toggleSelect(it.id) : setDetailId(it.id)
+                        }
                       />
                     ))}
                   </div>
@@ -243,7 +315,11 @@ export default function Inventory() {
                         key={it.id}
                         item={it}
                         currency={currency}
-                        onClick={() => setDetailId(it.id)}
+                        selectable={selectionMode}
+                        selected={selected.has(it.id)}
+                        onClick={() =>
+                          selectionMode ? toggleSelect(it.id) : setDetailId(it.id)
+                        }
                       />
                     ))}
                   </div>
@@ -255,26 +331,58 @@ export default function Inventory() {
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-          <div className="text-sm">
-            <span className="text-slate-500">Summe</span>{' '}
-            <span className="text-base font-bold">{money(total, currency)}</span>{' '}
-            <span className="text-slate-400">· {items.length} Objekte</span>
+        {selectionMode ? (
+          <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-3">
+            <span className="text-sm font-medium">{selected.size} ausgewählt</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                className="h-10 w-auto"
+                value=""
+                disabled={!selected.size}
+                onChange={(e) =>
+                  bulkMove(e.target.value === '__none__' ? null : e.target.value)
+                }
+              >
+                <option value="" disabled>
+                  Verschieben nach…
+                </option>
+                <option value="__none__">Ohne Bereich</option>
+                {areas.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </Select>
+              <Button variant="danger" size="lg" onClick={bulkDelete} disabled={!selected.size}>
+                <Trash2 className="h-5 w-5" /> Löschen
+              </Button>
+              <Button variant="secondary" size="lg" onClick={exitSelection}>
+                <X className="h-5 w-5" /> Fertig
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => setNewOpen(true)}
-              title="Objekt ohne Foto manuell anlegen"
-            >
-              <Plus className="h-5 w-5" />
-            </Button>
-            <Button size="lg" onClick={() => setCaptureOpen(true)}>
-              <Camera className="h-5 w-5" /> Erfassen
-            </Button>
+        ) : (
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
+            <div className="text-sm">
+              <span className="text-slate-500">Summe</span>{' '}
+              <span className="text-base font-bold">{money(total, currency)}</span>{' '}
+              <span className="text-slate-400">· {items.length} Objekte</span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={() => setNewOpen(true)}
+                title="Objekt ohne Foto manuell anlegen"
+              >
+                <Plus className="h-5 w-5" />
+              </Button>
+              <Button size="lg" onClick={() => setCaptureOpen(true)}>
+                <Camera className="h-5 w-5" /> Erfassen
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <CaptureDialog

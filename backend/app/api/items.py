@@ -32,6 +32,9 @@ from app.models.item_photo import ItemPhoto
 from app.models.user import User
 from app.schemas.inventory import (
     AreaSummary,
+    BulkAreaIn,
+    BulkDeleteIn,
+    BulkResult,
     InventorySummary,
     ItemIn,
     ItemOut,
@@ -421,6 +424,46 @@ async def process_items(
     if accessible:
         background_tasks.add_task(_process_items_background, accessible)
     return ProcessResult(scheduled=len(accessible))
+
+
+@router.post("/bulk/delete", response_model=BulkResult)
+async def bulk_delete(
+    body: BulkDeleteIn,
+    db: AsyncSession = Depends(get_db),
+    house: House = Depends(get_current_house),
+    _: User = Depends(get_current_user),
+):
+    """Löscht mehrere Objekte (nur aus dem aktiven Haus)."""
+    n = 0
+    for item_id in body.item_ids:
+        item = await db.get(Item, item_id)
+        if item and item.house_id == house.id:
+            await db.delete(item)
+            n += 1
+    await db.flush()
+    return BulkResult(affected=n)
+
+
+@router.post("/bulk/area", response_model=BulkResult)
+async def bulk_set_area(
+    body: BulkAreaIn,
+    db: AsyncSession = Depends(get_db),
+    house: House = Depends(get_current_house),
+    _: User = Depends(get_current_user),
+):
+    """Setzt bei mehreren Objekten den Bereich (nur innerhalb des aktiven Hauses)."""
+    if body.area_id is not None:
+        area = await db.get(Area, body.area_id)
+        if not area or area.house_id != house.id:
+            raise HTTPException(400, "Bereich gehört nicht zu diesem Haus")
+    n = 0
+    for item_id in body.item_ids:
+        item = await db.get(Item, item_id)
+        if item and item.house_id == house.id:
+            item.area_id = body.area_id
+            n += 1
+    await db.flush()
+    return BulkResult(affected=n)
 
 
 @router.post("/{item_id}/recognize", response_model=ItemOut)
