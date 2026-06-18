@@ -8,6 +8,7 @@ import {
   addPhoto,
   deleteItem,
   getItem,
+  listItems,
   recognizeItem,
   updateItem,
   visionStatus,
@@ -23,11 +24,13 @@ export function ItemDialog({
   areas,
   onClose,
   onChanged,
+  onNavigate,
 }: {
   itemId: string | null
   areas: Area[]
   onClose: () => void
   onChanged: () => void
+  onNavigate: (id: string) => void
 }) {
   const [item, setItem] = useState<Item | null>(null)
   const [name, setName] = useState('')
@@ -103,23 +106,44 @@ export function ItemDialog({
     }
   }
 
+  async function doSave() {
+    if (!item) return
+    const p = price.trim() ? Number(price.replace(',', '.')) : null
+    await updateItem(item.id, {
+      name: name.trim() || null,
+      category: category || null,
+      description: description.trim() || null,
+      price_new: Number.isFinite(p as number) ? p : null,
+      area_id: areaId,
+      is_catalogued: !!name.trim(),
+      for_sale: forSale,
+      for_disposal: forDisposal,
+    })
+    onChanged()
+  }
+
   async function save() {
     if (!item) return
     setBusy(true)
     try {
-      const p = price.trim() ? Number(price.replace(',', '.')) : null
-      await updateItem(item.id, {
-        name: name.trim() || null,
-        category: category || null,
-        description: description.trim() || null,
-        price_new: Number.isFinite(p as number) ? p : null,
-        area_id: areaId,
-        is_catalogued: !!name.trim(),
-        for_sale: forSale,
-        for_disposal: forDisposal,
-      })
-      onChanged()
+      await doSave()
       onClose()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Speichern und direkt zum nächsten „zu prüfen"-Objekt springen.
+  async function saveAndNext() {
+    if (!item) return
+    const current = item.id
+    setBusy(true)
+    try {
+      await doSave()
+      const pending = await listItems({ needs_verification: true })
+      const next = pending.find((i) => i.id !== current)
+      if (next) onNavigate(next.id)
+      else onClose()
     } finally {
       setBusy(false)
     }
@@ -158,6 +182,12 @@ export function ItemDialog({
         </div>
       ) : (
         <div className="space-y-4">
+          {item.needs_verification && (
+            <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+              <ScanSearch className="h-4 w-4 shrink-0" />
+              Automatisch erkannt — bitte prüfen und speichern.
+            </div>
+          )}
           {item.photos.length > 0 && (
             <div className="flex gap-2 overflow-x-auto">
               {item.photos.map((p) => (
@@ -311,17 +341,31 @@ export function ItemDialog({
             </label>
           </div>
 
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
             <Button variant="danger" size="sm" onClick={remove} disabled={busy}>
               <Trash2 className="h-4 w-4" /> Löschen
             </Button>
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={onClose} disabled={busy}>
-                Abbrechen
-              </Button>
-              <Button onClick={save} disabled={busy}>
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Speichern'}
-              </Button>
+            <div className="flex flex-wrap gap-2">
+              {item.needs_verification ? (
+                <>
+                  <Button variant="secondary" onClick={save} disabled={busy}>
+                    Speichern & schließen
+                  </Button>
+                  <Button onClick={saveAndNext} disabled={busy}>
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Speichern & nächstes
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="secondary" onClick={onClose} disabled={busy}>
+                    Abbrechen
+                  </Button>
+                  <Button onClick={save} disabled={busy}>
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Speichern'}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -315,6 +315,7 @@ export default function Inventory() {
         areas={areas}
         onClose={() => setDetailId(null)}
         onChanged={refreshAll}
+        onNavigate={(id) => setDetailId(id)}
       />
     </div>
   )
