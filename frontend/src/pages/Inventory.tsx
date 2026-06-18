@@ -16,9 +16,9 @@ import { FilterBar, type Filters } from '../components/FilterBar'
 import { HousesDialog } from '../components/HousesDialog'
 import { ItemCard } from '../components/ItemCard'
 import { ItemDialog } from '../components/ItemDialog'
+import { ExportDialog } from '../components/ExportDialog'
 import { ItemRow } from '../components/ItemRow'
 import { SettingsDialog } from '../components/SettingsDialog'
-import { openInventoryPdf } from '../services/export'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { Button } from '../components/ui/button'
 import { Select } from '../components/ui/select'
@@ -54,18 +54,7 @@ export default function Inventory() {
   const [housesOpen, setHousesOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
-  const [exporting, setExporting] = useState(false)
-
-  async function exportPdf() {
-    setExporting(true)
-    try {
-      await openInventoryPdf(filters)
-    } catch {
-      alert('PDF-Export fehlgeschlagen.')
-    } finally {
-      setExporting(false)
-    }
-  }
+  const [exportOpen, setExportOpen] = useState(false)
 
   // Häuser laden + aktives Haus bestimmen.
   const loadHouses = useCallback(async () => {
@@ -169,15 +158,10 @@ export default function Inventory() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={exportPdf}
-              disabled={exporting}
+              onClick={() => setExportOpen(true)}
               title="Inventarliste als PDF / drucken"
             >
-              {exporting ? (
-                <Spinner className="h-4 w-4" />
-              ) : (
-                <Printer className="h-4 w-4" />
-              )}
+              <Printer className="h-4 w-4" />
             </Button>
             {isAdmin(user) && (
               <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)} title="Einstellungen">
@@ -309,6 +293,7 @@ export default function Inventory() {
         onChanged={refreshAll}
       />
       <AreasDialog open={areasOpen} onOpenChange={setAreasOpen} areas={areas} onChanged={refreshAll} />
+      <ExportDialog open={exportOpen} onOpenChange={setExportOpen} filters={filters} />
       {isAdmin(user) && (
         <SettingsDialog
           open={settingsOpen}
