@@ -20,6 +20,7 @@ export function BackendsPanel() {
   const [visionId, setVisionId] = useState<string>('')
   const [pricingId, setPricingId] = useState<string>('')
   const [pricingMode, setPricingMode] = useState<string>('llm')
+  const [pricingTier, setPricingTier] = useState<string>('premium')
   const [searchProvider, setSearchProvider] = useState<string>('none')
   const [searxngUrl, setSearxngUrl] = useState<string>('')
   const [tavilyKey, setTavilyKey] = useState<string>('')
@@ -40,6 +41,7 @@ export function BackendsPanel() {
     setVisionId((vcfg?.backend_id as string) || '')
     setPricingId((pcfg?.backend_id as string) || '')
     setPricingMode((pcfg?.mode as string) || 'llm')
+    setPricingTier((pcfg?.tier as string) || 'premium')
     setSearchProvider(scfg.provider)
     setSearxngUrl(scfg.searxng_url || '')
     setHasTavilyKey(scfg.has_tavily_key)
@@ -57,11 +59,13 @@ export function BackendsPanel() {
     await putKv('vision_config', id ? { backend_id: id } : {})
   }
 
-  async function savePricing(mode: string, backendId: string) {
+  async function savePricing(mode: string, backendId: string, tier: string) {
     setPricingMode(mode)
     setPricingId(backendId)
+    setPricingTier(tier)
     await putKv('pricing_config', {
       mode,
+      tier,
       ...(backendId ? { backend_id: backendId } : {}),
     })
   }
@@ -126,7 +130,10 @@ export function BackendsPanel() {
             <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
               Preis-Indikation
             </label>
-            <Select value={pricingMode} onChange={(e) => savePricing(e.target.value, pricingId)}>
+            <Select
+              value={pricingMode}
+              onChange={(e) => savePricing(e.target.value, pricingId, pricingTier)}
+            >
               <option value="llm">Nur LLM-Schätzung</option>
               <option value="websearch">LLM + Websuche</option>
             </Select>
@@ -135,7 +142,10 @@ export function BackendsPanel() {
             <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
               Preis-Backend
             </label>
-            <Select value={pricingId} onChange={(e) => savePricing(pricingMode, e.target.value)}>
+            <Select
+              value={pricingId}
+              onChange={(e) => savePricing(pricingMode, e.target.value, pricingTier)}
+            >
               <option value="">Automatisch (erstes aktive)</option>
               {backends.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -144,6 +154,25 @@ export function BackendsPanel() {
               ))}
             </Select>
           </div>
+        </div>
+
+        {/* Preisniveau */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
+            Preisniveau
+          </label>
+          <Select
+            value={pricingTier}
+            onChange={(e) => savePricing(pricingMode, pricingId, e.target.value)}
+          >
+            <option value="value">Günstig (Einstiegssegment)</option>
+            <option value="standard">Standard (mittleres Segment)</option>
+            <option value="premium">Markenqualität (hochwertig)</option>
+          </Select>
+          <p className="mt-1 text-xs text-slate-400">
+            Lenkt die Schätzung Richtung No-Name &amp; günstig oder hochwertiger
+            Markenware.
+          </p>
         </div>
 
         {/* Such-Provider (nur im Websuche-Modus) */}

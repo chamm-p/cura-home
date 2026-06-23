@@ -33,6 +33,29 @@ def _coerce_sources(v) -> list[str]:
     return []
 
 
+# Preisniveau-Leitlinie für die Schätzung. „premium" ist Default, weil das
+# Einsatzumfeld eher hochpreisige Markenware umfasst.
+TIER_GUIDANCE = {
+    "value": (
+        "Orientiere dich am günstigen Einstiegssegment "
+        "(No-Name/Discounter sind ok)."
+    ),
+    "standard": (
+        "Orientiere dich am mittleren Marktsegment gängiger Markenprodukte."
+    ),
+    "premium": (
+        "Gehe von Markenqualität in gehobener Ausführung aus. Ignoriere "
+        "No-Name-, Gebraucht- und Billigangebote (einfache Marktplatz-Listings) "
+        "und nenne den Neupreis eines hochwertigen Markenprodukts im oberen "
+        "Preissegment."
+    ),
+}
+
+
+def _tier_hint(tier: str | None) -> str:
+    return TIER_GUIDANCE.get(tier or "premium", TIER_GUIDANCE["premium"])
+
+
 async def estimate(
     backend: LlmBackend,
     name: str,
@@ -40,6 +63,7 @@ async def estimate(
     mode: str,
     description: str | None = None,
     search: dict | None = None,
+    tier: str | None = None,
 ) -> dict:
     """Liefert {price, currency, sources, mode, note}. Wirft LlmError.
 
@@ -50,6 +74,7 @@ async def estimate(
     Schätzung zurück.
     """
     ctx = f" Zusatzinfo: {description}." if description else ""
+    hint = _tier_hint(tier)
     results = (search or {}).get("results") or []
     grounded = mode == "websearch" and bool(results)
 
@@ -63,22 +88,23 @@ async def estimate(
         system = (
             "Du ermittelst den aktuellen Neupreis (fabrikneu) eines "
             "Haushaltsgegenstands aus echten Suchergebnissen und nennst die "
-            "tatsächlich genutzten Quellen-URLs (NUR aus den vorgegebenen)."
+            "tatsächlich genutzten Quellen-URLs (NUR aus den vorgegebenen). "
+            f"{hint}"
         )
         user = (
             f"Produkt: {name}.{ctx}\n\nSuchergebnisse:\n{context}\n\n"
-            f"Ermittle den aktuellen Neupreis. Wähle Quellen-URLs ausschließlich "
-            f"aus obigen Ergebnissen. Antworte AUSSCHLIESSLICH als JSON in "
-            f'{currency}: {{"price": <Zahl>, "currency": "{currency}", '
+            f"Ermittle den aktuellen Neupreis. {hint} Wähle Quellen-URLs "
+            f"ausschließlich aus obigen Ergebnissen. Antworte AUSSCHLIESSLICH "
+            f'als JSON in {currency}: {{"price": <Zahl>, "currency": "{currency}", '
             f'"sources": ["<url>", ...], "note": "<kurzer Hinweis>"}}'
         )
     else:
         system = (
             "Du schätzt aus deinem Wissen den ungefähren Neupreis (fabrikneu) "
-            "von Haushaltsgegenständen."
+            f"von Haushaltsgegenständen. {hint}"
         )
         user = (
-            f"Schätze den ungefähren Neupreis von: {name}.{ctx} "
+            f"Schätze den ungefähren Neupreis von: {name}.{ctx} {hint} "
             f'Antworte AUSSCHLIESSLICH als JSON in {currency}: '
             f'{{"price": <Zahl>, "currency": "{currency}", '
             f'"sources": [], "note": "<kurzer Hinweis>"}}'

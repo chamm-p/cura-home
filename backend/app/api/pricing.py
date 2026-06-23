@@ -38,6 +38,7 @@ async def estimate(
 ):
     cfg = await settings_store.get_setting(db, "pricing_config")
     mode = cfg.get("mode", "llm")
+    tier = cfg.get("tier", "premium")
     backend = await settings_store.pick_backend(db, config_key="pricing_config")
     if backend is None:
         raise HTTPException(400, "Kein LLM-Backend für Preis-Indikation konfiguriert")
@@ -45,12 +46,20 @@ async def estimate(
     # Im Websuche-Modus zuerst echte Treffer holen (search-then-extract).
     search_data = None
     if mode == "websearch":
-        query = f"{body.name} Preis neu kaufen"
+        # Beim Premium-Niveau die Suche gezielt Richtung Markenware lenken.
+        extra = " Markenqualität hochwertig" if tier == "premium" else ""
+        query = f"{body.name} Neupreis kaufen{extra}"
         search_data = await search.web_search(db, query)
 
     try:
         result = await pricing.estimate(
-            backend, body.name, house.currency, mode, body.description, search=search_data
+            backend,
+            body.name,
+            house.currency,
+            mode,
+            body.description,
+            search=search_data,
+            tier=tier,
         )
     except LlmError as e:
         raise HTTPException(502, str(e))
