@@ -56,6 +56,14 @@ def _tier_hint(tier: str | None) -> str:
     return TIER_GUIDANCE.get(tier or "premium", TIER_GUIDANCE["premium"])
 
 
+# Das Preisniveau steuert die Zahl, soll aber nicht den Hinweistext einfärben.
+NOTE_RULE = (
+    'Halte "note" knapp, sachlich und neutral (z.B. Produktart oder Annahme). '
+    'Verwende KEINE werbliche oder wertende Sprache wie "hochwertig", '
+    '"Premium", "Markenqualität" oder "teuer".'
+)
+
+
 async def estimate(
     backend: LlmBackend,
     name: str,
@@ -94,9 +102,10 @@ async def estimate(
         user = (
             f"Produkt: {name}.{ctx}\n\nSuchergebnisse:\n{context}\n\n"
             f"Ermittle den aktuellen Neupreis. {hint} Wähle Quellen-URLs "
-            f"ausschließlich aus obigen Ergebnissen. Antworte AUSSCHLIESSLICH "
-            f'als JSON in {currency}: {{"price": <Zahl>, "currency": "{currency}", '
-            f'"sources": ["<url>", ...], "note": "<kurzer Hinweis>"}}'
+            f"ausschließlich aus obigen Ergebnissen. {NOTE_RULE} Antworte "
+            f'AUSSCHLIESSLICH als JSON in {currency}: {{"price": <Zahl>, '
+            f'"currency": "{currency}", "sources": ["<url>", ...], '
+            f'"note": "<kurzer Hinweis>"}}'
         )
     else:
         system = (
@@ -105,6 +114,7 @@ async def estimate(
         )
         user = (
             f"Schätze den ungefähren Neupreis von: {name}.{ctx} {hint} "
+            f"{NOTE_RULE} "
             f'Antworte AUSSCHLIESSLICH als JSON in {currency}: '
             f'{{"price": <Zahl>, "currency": "{currency}", '
             f'"sources": [], "note": "<kurzer Hinweis>"}}'
