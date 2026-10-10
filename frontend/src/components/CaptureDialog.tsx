@@ -1,5 +1,5 @@
 import { Camera, Loader2, Sparkles, TriangleAlert, X } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { type Area, type Item, capture, deleteItem, processItems } from '../services/inventory'
 import { Button } from './ui/button'
 import { Dialog } from './ui/dialog'
@@ -26,6 +26,16 @@ export function CaptureDialog({
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Der Dialog bleibt gemountet — beim Öffnen Status-Reste aus dem letzten
+  // Durchlauf verwerfen, sonst bleibt „Foto aufnehmen" gesperrt.
+  useEffect(() => {
+    if (open) {
+      setBusy(false)
+      setProcessing(false)
+      setError(null)
+    }
+  }, [open])
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -54,6 +64,7 @@ export function CaptureDialog({
 
   function close() {
     setItems([])
+    setProcessing(false)
     onChanged()
     onOpenChange(false)
   }
