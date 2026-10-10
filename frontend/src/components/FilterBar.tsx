@@ -1,5 +1,5 @@
 import { SlidersHorizontal } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { CATEGORIES } from '../lib/categories'
 import { type Area } from '../services/inventory'
 import { Select } from './ui/select'
@@ -23,6 +23,14 @@ const FLAGS = [
   { key: 'for_disposal', label: 'Zu entsorgen' },
 ] as const
 
+const NO_FLAGS = {
+  needs_verification: false,
+  uncatalogued: false,
+  no_price: false,
+  for_sale: false,
+  for_disposal: false,
+}
+
 export function FilterBar({
   areas,
   filters,
@@ -31,6 +39,97 @@ export function FilterBar({
   areas: Area[]
   filters: Filters
   onChange: (f: Filters) => void
+}) {
+  const flagCount = FLAGS.filter((f) => filters[f.key]).length
+  const allCount = flagCount + (filters.area_id ? 1 : 0) + (filters.category ? 1 : 0)
+
+  const areaSelect = (className: string) => (
+    <Select
+      className={className}
+      value={filters.area_id ?? ''}
+      onChange={(e) => onChange({ ...filters, area_id: e.target.value || null })}
+    >
+      <option value="">Alle Bereiche</option>
+      {areas.map((a) => (
+        <option key={a.id} value={a.id}>
+          {a.name}
+        </option>
+      ))}
+    </Select>
+  )
+
+  const categorySelect = (className: string) => (
+    <Select
+      className={className}
+      value={filters.category ?? ''}
+      onChange={(e) => onChange({ ...filters, category: e.target.value || null })}
+    >
+      <option value="">Alle Kategorien</option>
+      {CATEGORIES.map((c) => (
+        <option key={c} value={c}>
+          {c}
+        </option>
+      ))}
+    </Select>
+  )
+
+  const flagList = FLAGS.map((f) => (
+    <label
+      key={f.key}
+      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+    >
+      <input
+        type="checkbox"
+        checked={!!filters[f.key]}
+        onChange={(e) => onChange({ ...filters, [f.key]: e.target.checked })}
+      />
+      {f.label}
+    </label>
+  ))
+
+  return (
+    <>
+      {/* Mobil: alles in einem Filter-Button */}
+      <div className="sm:hidden">
+        <FilterMenu
+          count={allCount}
+          onReset={() => onChange({ ...filters, ...NO_FLAGS, area_id: null, category: null })}
+          panelClassName="w-[min(18rem,calc(100vw-2rem))]"
+        >
+          <div className="space-y-2 p-1 pb-2">
+            {areaSelect('h-9')}
+            {categorySelect('h-9')}
+          </div>
+          <div className="border-t border-slate-200 pt-1 dark:border-slate-700">{flagList}</div>
+        </FilterMenu>
+      </div>
+
+      {/* Desktop: Bereich + Kategorie direkt, Status-Filter im Dropdown */}
+      <div className="hidden flex-wrap items-center gap-2 sm:flex">
+        {areaSelect('h-9 w-auto min-w-36')}
+        {categorySelect('h-9 w-auto min-w-36')}
+        <FilterMenu
+          count={flagCount}
+          onReset={() => onChange({ ...filters, ...NO_FLAGS })}
+          panelClassName="w-52"
+        >
+          {flagList}
+        </FilterMenu>
+      </div>
+    </>
+  )
+}
+
+function FilterMenu({
+  count,
+  onReset,
+  panelClassName,
+  children,
+}: {
+  count: number
+  onReset: () => void
+  panelClassName: string
+  children: ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -44,92 +143,44 @@ export function FilterBar({
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
 
-  const activeCount = FLAGS.filter((f) => filters[f.key]).length
-
-  function clearFlags() {
-    onChange({
-      ...filters,
-      needs_verification: false,
-      uncatalogued: false,
-      no_price: false,
-      for_sale: false,
-      for_disposal: false,
-    })
-  }
-
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Select
-        className="h-9 w-auto min-w-36"
-        value={filters.area_id ?? ''}
-        onChange={(e) => onChange({ ...filters, area_id: e.target.value || null })}
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={
+          'flex h-9 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium ' +
+          (count > 0
+            ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
+            : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800')
+        }
       >
-        <option value="">Alle Bereiche</option>
-        {areas.map((a) => (
-          <option key={a.id} value={a.id}>
-            {a.name}
-          </option>
-        ))}
-      </Select>
+        <SlidersHorizontal className="h-4 w-4" />
+        Filter
+        {count > 0 && (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-500 px-1 text-xs text-white">
+            {count}
+          </span>
+        )}
+      </button>
 
-      <Select
-        className="h-9 w-auto min-w-36"
-        value={filters.category ?? ''}
-        onChange={(e) => onChange({ ...filters, category: e.target.value || null })}
-      >
-        <option value="">Alle Kategorien</option>
-        {CATEGORIES.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </Select>
-
-      <div className="relative" ref={ref}>
-        <button
-          onClick={() => setOpen((o) => !o)}
+      {open && (
+        <div
           className={
-            'flex h-9 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium ' +
-            (activeCount > 0
-              ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300'
-              : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800')
+            'absolute left-0 top-full z-40 mt-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900 ' +
+            panelClassName
           }
         >
-          <SlidersHorizontal className="h-4 w-4" />
-          Filter
-          {activeCount > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-500 px-1 text-xs text-white">
-              {activeCount}
-            </span>
+          {children}
+          {count > 0 && (
+            <button
+              onClick={onReset}
+              className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-xs text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              Filter zurücksetzen
+            </button>
           )}
-        </button>
-
-        {open && (
-          <div className="absolute left-0 top-full z-40 mt-1 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-            {FLAGS.map((f) => (
-              <label
-                key={f.key}
-                className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <input
-                  type="checkbox"
-                  checked={!!filters[f.key]}
-                  onChange={(e) => onChange({ ...filters, [f.key]: e.target.checked })}
-                />
-                {f.label}
-              </label>
-            ))}
-            {activeCount > 0 && (
-              <button
-                onClick={clearFlags}
-                className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-xs text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                Filter zurücksetzen
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

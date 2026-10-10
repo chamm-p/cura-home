@@ -197,6 +197,7 @@ export default function Inventory() {
             <Button
               variant="ghost"
               size="sm"
+              className="hidden sm:inline-flex"
               onClick={() => setExportOpen(true)}
               title="Inventarliste als PDF / drucken"
             >
